@@ -9,9 +9,15 @@ using Distributed
 using BenchmarkTools
 
 include("PrintParaFrags.jl")
+include("ReadInputs.jl")
+
+# launch worker processes
+addprocs(0)
 
 startinfo()
+slurminfo()
 
+readinp("./input")
 
 finishinfo()
 

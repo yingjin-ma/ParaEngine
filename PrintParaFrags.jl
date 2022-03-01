@@ -1,6 +1,17 @@
 
 using Dates
 
+function slurminfo()
+    println(" ")
+    println("-----------------------------------------------------------")
+    println("-- Slurm info : -------------------------------------------")
+    println("-----------------------------------------------------------")
+    println("Number of processes : ", nprocs())
+    println("Number of workers   : ", nworkers())
+    println("-----------------------------------------------------------")
+    println(" ")
+end
+
 function startinfo()
     println("")
     println("Start : ",Dates.Date(Dates.now())," ",Dates.Time(Dates.now()))
