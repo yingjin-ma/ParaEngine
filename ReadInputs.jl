@@ -44,6 +44,38 @@ function readpdbfile(inpdb)
         println("... (more) ")
     end 
 
+    ifrag=0
+    fraglist=[]
+    icharge    = 0 
+    multiple   = 1
+    natoms_frg = 0
+    for i in 1:total_atoms
+        #println("atomlist[i][1] : ",atomlist[i].ifrag)
+        if atomlist[i].ifrag != ifrag
+            if ifrag != 0 
+                push!(fraglist,FRAGS(ifrag,natoms_frg,icharge,1,0.0))
+            end 
+            ifrag = ifrag+1
+            icharge    = 0 
+            natoms_frg = 0
+        end 
+        if atomlist[i].ifrag == ifrag
+            natoms_frg=natoms_frg+1
+        end 
+        if atomlist[i].icharge != 0
+            icharge=icharge+atomlist[i][3]
+        end
+        if i == total_atoms
+            push!(fraglist,FRAGS(ifrag,natoms_frg,icharge,1,0.0))
+        end 
+    end
+    total_frags=ifrag
+
+    println("total_frags : ",total_frags) 
+    for i in 1:total_frags
+        println(fraglist[i]) 
+    end 
+
 
 end 
 

@@ -13,3 +13,10 @@ struct ATOMS
 end 
 
 
+struct FRAGS
+      idx::Int
+   natoms::Int
+  icharge::Int
+ multiple::Int
+   energy::Float64
+end 
