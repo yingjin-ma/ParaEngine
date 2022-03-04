@@ -1,7 +1,9 @@
-global runtype,runtype2
-global qcdriver
-global pdbfile
-global LBfile
+runtype  = ""
+runtype2 = ""
+qcdriver = ""
+pdbfile  = ""
+LBfile   = ""
+workdir  = "./workdir"
 
 struct ATOMS
       idx::Int
@@ -12,11 +14,13 @@ struct ATOMS
        ZZ::Float64
 end 
 
-
 struct FRAGS
       idx::Int
+    iatom::Int
    natoms::Int
   icharge::Int
  multiple::Int
    energy::Float64
 end 
+
+

@@ -3,10 +3,10 @@ function readpdbfile(inpdb)
     # Tested, not used
     pdb=open(inpdb,"r")
     nlines=countlines(pdb)
-    println(nlines)    
+    # println(nlines)    
 
     #
-    atomlist=[]  
+    global atomlist=[]  
     natoms=0 
     open(inpdb,"r") do stream
         for line in eachline(stream)
@@ -31,7 +31,7 @@ function readpdbfile(inpdb)
             end 
         end 
     end 
-    total_atoms=natoms  
+    global total_atoms=natoms  
 
     for i in 1:100
         if i > total_atoms  
@@ -45,15 +45,16 @@ function readpdbfile(inpdb)
     end 
 
     ifrag=0
-    fraglist=[]
+    global fraglist=[]
     icharge    = 0 
     multiple   = 1
     natoms_frg = 0
     for i in 1:total_atoms
         #println("atomlist[i][1] : ",atomlist[i].ifrag)
         if atomlist[i].ifrag != ifrag
-            if ifrag != 0 
-                push!(fraglist,FRAGS(ifrag,natoms_frg,icharge,1,0.0))
+            if ifrag != 0
+                istart=atomlist[i].idx-natoms_frg
+                push!(fraglist,FRAGS(ifrag,istart,natoms_frg,icharge,1,0.0))
             end 
             ifrag = ifrag+1
             icharge    = 0 
@@ -66,16 +67,16 @@ function readpdbfile(inpdb)
             icharge=icharge+atomlist[i][3]
         end
         if i == total_atoms
-            push!(fraglist,FRAGS(ifrag,natoms_frg,icharge,1,0.0))
+            istart=atomlist[i].idx-natoms_frg+1 
+            push!(fraglist,FRAGS(ifrag,istart,natoms_frg,icharge,1,0.0))
         end 
     end
-    total_frags=ifrag
+    global total_frags=ifrag
 
-    println("total_frags : ",total_frags) 
-    for i in 1:total_frags
-        println(fraglist[i]) 
-    end 
-
+#    println("total_frags : ",total_frags) 
+#    for i in 1:total_frags
+#        println(fraglist[i]) 
+#    end 
 
 end 
 
@@ -86,31 +87,38 @@ function readinp(infile)
             ntmp=length(sline) 
             if ntmp > 0 
                 if uppercase(sline[1]) == "TASK"
+#                    println(uppercase(sline[1])) 
                     if uppercase(sline[2]) == "DFT"
-                        runtype = "DFT"
+                        global runtype = "DFT"
                     end  
                     if uppercase(sline[3]) == "FRAG"
-                        runtype2 = "FRAG"
+                        global runtype2 = "FRAG"
                     end  
                 end
                 if uppercase(sline[1]) == "ENGINE"
                     if uppercase(sline[2]) == "NWCHEM"
-                        qcdriver = "NWCHEM"
+                        global qcdriver = "NWCHEM"
                     end  
                     if uppercase(sline[3]) == "NWCHEM"
-                        qcdriver = "NWCHEM"
+                        global qcdriver = "NWCHEM"
                     end  
                 end
                 if uppercase(sline[1]) == "COORD"
-                    pdbfile = sline[2]
+                    global pdbfile = sline[2]
                     readpdbfile(pdbfile)
                 end
                 if uppercase(sline[1]) == "LOADBALANCE"
-                    LBfile  = sline[2] 
+                    global LBfile  = sline[2] 
+                end
+                if uppercase(sline[1]) == "WORKDIR"
+                    global workdir = sline[2] 
                 end
             end 
         end
     end
+    #println("runtype,runtype2,qcdriver,pdbfile,LBfile")
+    #println(runtype,runtype2,qcdriver,pdbfile,LBfile)
+    #return runtype,runtype2,qcdriver,pdbfile,LBfile
 end 
 
 

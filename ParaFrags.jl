@@ -11,6 +11,7 @@ using BenchmarkTools
 include("PrintParaFrags.jl")
 include("GlobalParameters.jl")
 include("ReadInputs.jl")
+include("QCTasks.jl")
 
 # launch worker processes
 addprocs(0)
@@ -19,6 +20,7 @@ startinfo()
 slurminfo()
 
 readinp("input")
+gentask()
 
 finishinfo()
 
