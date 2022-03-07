@@ -20,7 +20,11 @@ startinfo()
 slurminfo()
 
 readinp("input")
+
 gentask()
+distributingtask(1)
+runtask()
+
 
 finishinfo()
 
