@@ -22,8 +22,8 @@ slurminfo()
 readinp("input")
 
 gentask()
-distributingtask(1)
-runtask()
+distributingtask()
+runtask(1)
 
 
 finishinfo()

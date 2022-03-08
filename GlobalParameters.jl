@@ -3,7 +3,7 @@ runtype2 = ""
 qcdriver = ""
 pdbfile  = ""
 LBfile   = ""
-LBmat    = [[]]
+LBcube   = []
 workdir  = "./workdir"
 
 struct ATOMS

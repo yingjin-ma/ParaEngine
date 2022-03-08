@@ -47,7 +47,7 @@ function gentask()
 
 end 
 
-function distributingtask(NNSLURM)
+function distributingtask()
 
     nnodes = -1
     iflag  = -1
@@ -61,34 +61,29 @@ function distributingtask(NNSLURM)
         println(" <-- ")
         # Read in the loadbalance file 
         open(LBfile,"r") do LBread
-            for line in eachline(LBread)
+            while !eof(LBread)
+                line=readline(LBread)
                 sline=split(line)
                 ntmp=length(sline)
-                if iflag == 1
-                    icount = icount +1 
-                    LBvec=[]
-                    for i in 1:ntmp 
-                        push!(LBvec,parse(Int32,sline[i]))
-                    end   
-                    push!(LBmat,LBvec)
-                end
-                if icount == nnodes
-                    break
-                end
-                if ntmp > 0                    
+                if ntmp > 0                   
                     if uppercase(sline[1]) == "NODES"
                         nnodes = parse(Int32,sline[2])
-                        if nnodes == NNSLURM
-                            println("Matched the number of NODES between SLURM and Task-Pre-Assignment ") 
-                            println("NSLURM_NODES : ", NNSLURM, " NPRE_NODES : ", nnodes)  
-                            iflag=1
-                        end
+                        LBmat=[] 
+                        for i in 1:nnodes
+                            line=readline(LBread)
+                            sline=split(line)
+                            ntmp=length(sline)
+                            LBvec=[]
+                            for i in 1:ntmp
+                                push!(LBvec,parse(Int32,sline[i]))
+                            end 
+                            push!(LBmat,LBvec)
+                        end  
+                        push!(LBcube,LBmat)
                     end 
                 end
-
             end
         end
-        println(LBmat)
     else
         println("Assigning tasks with --> Default <-- ")
     end  
@@ -97,11 +92,24 @@ function distributingtask(NNSLURM)
 end
 
 
-function runtask()
+function runtask(NNSLURM)
 
     println("")
+    for i in 1:length(LBcube) 
+        if i == NNSLURM
+            println("Matched the number of NODES between SLURM and Task-Pre-Assignment ") 
+            println("    NSLURM_NODES : ", NNSLURM, "        NPRE_NODES : ", i)  
+            println("                  ------------           ")  
+            for j in 1:length(LBcube[i])
+                println("Tasks on node-",j,"  :  ", LBcube[i][j])
+            end  
+            println("                  ------------           ")  
+        end  
+    end
     println("Running the QC tasks ... ")
     println("")
     println("")
 
-end 
+end
+
+ 
