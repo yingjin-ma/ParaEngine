@@ -23,8 +23,18 @@ readinp("input")
 
 gentask()
 distributingtask()
-runtask(1)
 
+try
+    global NN = parse(Int, ENV["SLURM_NNODES"])
+    global IFSLURM = true 
+catch err
+    println("ENV(SLURM_NNODES) is not found, use only 1 local process")
+    global NN = 1 
+    global IFSLURM = false
+end 
+println("NN : ",NN, " IFSLURM : ",IFSLURM)
+
+runtask(NN,IFSLURM)
 
 finishinfo()
 

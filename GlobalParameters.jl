@@ -24,4 +24,12 @@ struct FRAGS
    energy::Float64
 end 
 
+@everywhere mutable struct TASKS
+      idx::Int
+   fragid::Int
+   folder::String 
+   infile::String
+  outfile::String
+   qcsoft::String
+end
 

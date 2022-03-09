@@ -1,0 +1,7 @@
+#!/bin/bash
+module  use /public/home/mayj/Quantum_modulefiles
+module load IntelMKL/2021.1.1
+module load apps/nwchem-DCU/6.8.1/hpcx-2.7.4-intel2017
+
+mpirun -np 5 /public/software/apps/nwchem-DCU/6.8.1/hpcx-2.4.1-intel2017/bin/LINUX64/nwchem_dcu $1  > $2
+
