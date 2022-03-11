@@ -4,7 +4,7 @@ qcdriver = ""
 pdbfile  = ""
 LBfile   = ""
 LBcube   = []
-workdir  = "./workdir"
+@everywhere workdir  = "./workdir"
 
 struct ATOMS
       idx::Int

@@ -33,20 +33,21 @@ function nwchemtask(task,frag,atoms,par)
     fragidx=lpad(frag.idx,8,"0")
     #run(`cp Template.nwchem $(fragidx).nw`) 
  
-    # 
-    open("Frag-$(fragidx).nw","w") do nwinp
+    infile=string(workdir,"/Frag-$(fragidx).nw")
+    open(infile,"w") do nwinp
         txt = read("Template.nwchem",String)
         txt = replace(txt,"FRAG-i" => "Frag-$(fragidx)","X-library-basis" => "* library 6-31g","dftxc" => "xc m06-2x")
         print(nwinp,txt)
     end     
 
-    open("XYZ.tmp","w") do xyztmp
+    inXYZ=string(workdir,"/XYZ.tmp")    
+    open(inXYZ,"w") do xyztmp
         for iatom in atoms
             println(xyztmp,iatom.elem," ",iatom.coord[1]," ",iatom.coord[2]," ",iatom.coord[3])
         end
     end 
 
-    run(`sed -i "4r XYZ.tmp" Frag-$(fragidx).nw`)
+    run(`sed -i "4r $inXYZ" $infile`)
 
     task.infile  = "Frag-$(fragidx).nw"
     task.outfile = "Frag-$(fragidx).out"
@@ -79,7 +80,7 @@ function gentask()
         println("")
     end
  
-    println(tasklist)
+    # println(tasklist)
 
 end 
 
@@ -132,7 +133,6 @@ end
  
 #    println("taskvec ",tvec) 
 #    println("tasklist",tlist) 
-
     for itask in tvec
         if itask != 0
             print("id",id,gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
@@ -142,25 +142,15 @@ end
             if !isdir(tlist[itask].folder)
                 mkpath(tlist[itask].folder)
             end 
-            run(`mv  $(tlist[itask].infile)  $(tlist[itask].folder)`)
+            run(`mv $(workdir)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
             run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
             ccheck=string(tlist[itask].folder,"/",tlist[itask].outfile)
             rdlast=@spawnat id check_last_NWChem(ccheck)
             fetch(rdlast)
         end 
     end 
-
-    #dir0="/work1/mayj/Test_CODES/Test_Julia/Frag-000000000"
-    #for i in i1:i2
-    #    AXX=`time ../NWChemRUN Frag-000000000$(i).nw out$(i).txt `
-    #    cdir=string(dir0,string(i))
-    #    run(Cmd(AXX,dir=cdir,detach=true))
-    #    #b=@spawnat id run(Cmd(AXX,dir=cdir,detach=true))
-    #    ccheck=string("./Frag-000000000",string(i),"/out",string(i),".txt")
-    #    rdlast=@spawnat id check_last_NWChem(ccheck)
-    #    fetch(rdlast)
-    #end
     println("Done in NWChemRUN with inode-",id)
+
 end
 
 
