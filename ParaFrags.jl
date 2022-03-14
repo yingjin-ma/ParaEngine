@@ -31,10 +31,12 @@ catch err
     println("ENV(SLURM_NNODES) is not found, use only 1 local process")
     global NN = 1 
     global IFSLURM = false
-end 
-println("NN : ",NN, " IFSLURM : ",IFSLURM)
+end
 
-runtask(NN,IFSLURM)
+IFDYNA= false
+println("NN : ",NN, " IFSLURM : ",IFSLURM," IFDYNAMIC : ",IFDYNA)
+
+runtask(NN,IFSLURM,IFDYNA)
 
 finishinfo()
 

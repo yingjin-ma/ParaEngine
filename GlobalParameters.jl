@@ -5,6 +5,8 @@ pdbfile  = ""
 LBfile   = ""
 LBcube   = []
 @everywhere workdir  = "./workdir"
+@everywhere IOrecord = ""
+@everywhere IFDONE   = false
 
 struct ATOMS
       idx::Int
