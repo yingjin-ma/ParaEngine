@@ -4,6 +4,8 @@
 # 2021.11.28 Testing version use the Fortran + Shell style
 # 2022.2.28  Initial pass for Julia version, using Julia to refactering the ParaFrags 
 #            A lot of works need to do ...  
+# 2022.3.14  Both dynamic and static load-balancing ways can work
+
 
 using Distributed
 using BenchmarkTools
@@ -32,11 +34,13 @@ catch err
     global NN = 1 
     global IFSLURM = false
 end
+flush(stdout)
 
-IFDYNA= false
-println("NN : ",NN, " IFSLURM : ",IFSLURM," IFDYNAMIC : ",IFDYNA)
+ISPAWN = 1
+println("NN : ",NN, " IFSLURM : ",IFSLURM," ISPAWN : ",ISPAWN, " (1:@spawn 2:@spawnat)")
+flush(stdout)
 
-runtask(NN,IFSLURM,IFDYNA)
+runtask(NN,IFSLURM,ISPAWN)
 
 finishinfo()
 

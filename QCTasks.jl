@@ -15,37 +15,39 @@ using BenchmarkTools
     end
 end
 
-@everywhere function check_last_NWChem(out,IOrecord,IFDONE)
 
-    iflag = -1  
-    println("out : ",out,"  IOrecord : ",IOrecord)
+#=
+@everywhere function check_last_NWChem_OLD(out,IOrecord,IFDONE)
+
+    iflag = -1
+    # println("out : ",out,"  IOrecord : ",IOrecord)
     sline1=rsplit(out,"/"; limit=2)
-    println("sline1 : ", sline1)
-    record = open(IOrecord,"a+") 
+    # println("sline1 : ", sline1)
+    record = open(IOrecord,"a+")
         lines=readlines(record)
-        println("lines : ",lines)
-        if length(lines) > 0 
+        # println("lines : ",lines)
+        if length(lines) > 0
             for line in lines
                 sline2=rsplit(line,"/"; limit=2)
-                println("line : ", line," sline2: ",sline2," sline1: ",sline1)
+                # println("line : ", line," sline2: ",sline2," sline1: ",sline1)
                 if occursin(sline1[2],sline2[2])
                     iflag = 1
-                    break 
-                end 
-            end 
-            if iflag == 1 
+                    break
+                end
+            end
+            if iflag == 1
               println(record,out)
-              println("out : ",out)
+              # println("out : ",out)
             end
         else
             println(record,out)
-            println("out : ",out)
+            # println("out : ",out)
             iflag = 1
-        end   
+        end
     close(record)
-    
+
     if IFDONE
-        print("IFDONE is TRUE")
+        println("IFDONE is TRUE")
     else
         if iflag == 1
             while true
@@ -57,7 +59,28 @@ end
                 end
             end
         end
-    end 
+    end
+
+end
+=#
+
+@everywhere function check_last_NWChem(out,IOrecord,IFDONE)
+
+    if IFDONE
+        println("  ")
+        println("IFDONE is TRUE; Skip this task ... ")
+        println("  ")
+    else
+        while true
+            sleep(5)
+            tailout=read_last(out)
+            println(tailout)
+            if occursin("Total times  cpu:",tailout)
+                break
+            end
+        end
+    end
+    flush(stdout) 
 
 end
 
@@ -87,6 +110,8 @@ function nwchemtask(task,frag,atoms,par)
     task.infile  = "Frag-$(fragidx).nw"
     task.outfile = "Frag-$(fragidx).out"
 
+    flush(stdout)
+
 end 
 
 function gentask()
@@ -100,11 +125,11 @@ function gentask()
         mkdir(workdir)
         println("WorkDir : ",workdir)
     end
-    @everywhere global IOrecord=string(workdir,"/IOrecord")
-    println("IOrecord : ",IOrecord)
 
-    io=open(IOrecord,"w") 
-    close(io)
+#    @everywhere global IOrecord=string(workdir,"/IOrecord")
+#    println("IOrecord : ",IOrecord)
+#    io=open(IOrecord,"w") 
+#    close(io)
 
     if qcdriver == "NWCHEM"
         println("Generating the NWChem tasks ... ")
@@ -121,6 +146,7 @@ function gentask()
     end
  
     # println(tasklist)
+    flush(stdout)
 
 end 
 
@@ -162,17 +188,25 @@ function distributingtask()
             end
         end
     else
-        println("Assigning tasks with --> Default <-- ")
+        println("Assigning tasks with --> Default <-- ")       
+        LBmat=[]
+        LBvec=[] 
+        for i in 1:total_frags
+            push!(LBvec,i)
+        end 
+        push!(LBmat,LBvec)
+        push!(LBcube,LBmat) 
     end  
     println("")
+    flush(stdout)
 
 end
 
 
 @everywhere function NWChemRUN_SPAWNAT(tvec,tlist,id)
  
-#    println("taskvec ",tvec) 
-#    println("tasklist",tlist) 
+    println("taskvec  : ",tvec) 
+    println("tasklist : ",tlist) 
     for itask in tvec
         if itask != 0
             print("id",id,gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
@@ -191,25 +225,27 @@ end
             end
 
             if IFDONE
-                println("JOB $(tlist[itask].infile) already done in another worker")                
-                ccheck=string(tlist[itask].folder,"/",tlist[itask].outfile)
-                rdlast=@spawnat id check_last_NWChem(ccheck,IOrecord,IFDONE)
-                fetch(rdlast)
+                println("JOB $(tlist[itask].infile) already done in another Worker")                
             else 
                 run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
-                ccheck=string(tlist[itask].folder,"/",tlist[itask].outfile)
-                rdlast=@spawnat id check_last_NWChem(ccheck,IOrecord,IFDONE)
-                fetch(rdlast)
             end 
+            flush(stdout)
+            flush(stderr)
+
+            ccheck=string(tlist[itask].folder,"/",tlist[itask].outfile)
+            rdlast=@spawnat id check_last_NWChem(ccheck,IOrecord,IFDONE)
+            fetch(rdlast)
+
         end 
     end 
     println("Done in NWChemRUN_SPAWNAT with inode-",id)
+    flush(stdout)
 end
 
 @everywhere function NWChemRUN_SPAWN(tvec,tlist,id)
  
-#    println("taskvec ",tvec) 
-#    println("tasklist",tlist) 
+    println("taskvec  : ",tvec) 
+    println("tasklist : ",tlist) 
     for itask in tvec
         if itask != 0
             print("id",id,gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
@@ -219,28 +255,51 @@ end
             if !isdir(tlist[itask].folder)
                 mkpath(tlist[itask].folder)
             end 
-            run(`mv $(workdir)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
-            run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
+
+            try
+                run(`mv $(workdir)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
+                global IFDONE = false
+            catch err
+                global IFDONE = true
+            end
+
+            if IFDONE
+                println("JOB $(tlist[itask].infile) already done in another Worker")                
+            else
+                run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
+            end
+            flush(stdout)
+            flush(stderr)
+
             ccheck=string(tlist[itask].folder,"/",tlist[itask].outfile)
-            rdlast=@spawn check_last_NWChem(ccheck,IOrecord)
+            rdlast=@spawn check_last_NWChem(ccheck,IOrecord,IFDONE)
             fetch(rdlast)
+
         end 
     end 
     println("Done in NWChemRUN_SPAWN with inode-",id)
+    flush(stdout)
+
 end
 
 
-function runtask(NNSLURM, IFSLURM, IFDYNA)
+function runtask(NNSLURM, IFSLURM, ISPAWN)
 
     println("")
     for i in 1:length(LBcube) 
-        if i == NNSLURM
+        if i == NNSLURM || LBfile == ""
             println("Matched the number of NODES between SLURM and Task-Pre-Assignment ") 
             println("    NSLURM_NODES : ", NNSLURM, "        NPRE_NODES : ", i)  
             println("                  ------------           ")  
-            for j in 1:length(LBcube[i])
-                println("Tasks on node-",j,"  :  ", LBcube[i][j])
-            end  
+
+            if LBfile != ""
+                for j in 1:length(LBcube[i])
+                    println("Tasks on node-",j,"  :  ", LBcube[i][j])
+                end  
+            else
+                println("Tasks on ALL-nodes :  ", LBcube[1][1])
+            end 
+
             println("                  ------------           ")  
         end  
     end
@@ -254,6 +313,7 @@ function runtask(NNSLURM, IFSLURM, IFDYNA)
             end
         end 
     end 
+    flush(stdout)
 
     for i in workers()
         id, pid, host = fetch(@spawnat i (myid(), getpid(), gethostname()))
@@ -263,6 +323,7 @@ function runtask(NNSLURM, IFSLURM, IFDYNA)
     @everywhere println("    process: $(myid()) on host $(gethostname())")
     println("")
     println("")
+    flush(stdout)
 
     run=[]
     for i in 1:NNSLURM
@@ -270,11 +331,18 @@ function runtask(NNSLURM, IFSLURM, IFDYNA)
           inode = i+1
         else
           inode = i
-        end 
-        if IFDYNA 
-            push!(run,@spawn NWChemRUN_SPAWN(LBcube[NNSLURM][i],tasklist,inode))
+        end
+        
+        if LBfile != ""
+            LBtmp=LBcube[NNSLURM][i]
         else
-            push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBcube[NNSLURM][i],tasklist,inode))
+            LBtmp=LBcube[1][1]
+        end   
+ 
+        if ISPAWN == 1 
+            push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist,inode))
+        elseif ISPAWN == 2
+            push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBtmp,tasklist,inode))
         end 
     end 
 
