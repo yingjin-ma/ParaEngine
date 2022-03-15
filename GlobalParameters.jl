@@ -4,6 +4,7 @@ qcdriver = ""
 pdbfile  = ""
 LBfile   = ""
 LBcube   = []
+MNcube   = []
 @everywhere workdir  = "./workdir"
 @everywhere IOrecord = ""
 @everywhere IFDONE   = false
@@ -33,5 +34,6 @@ end
    infile::String
   outfile::String
    qcsoft::String
+   nnodes::Int
 end
 

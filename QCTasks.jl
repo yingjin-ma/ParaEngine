@@ -138,7 +138,7 @@ function gentask()
              istart = fraglist[i].iatom
             ifinish = fraglist[i].iatom+fraglist[i].natoms-1
             print(" frags-",i," : atomlist ",istart,"-",ifinish)           
-            push!(tasklist,TASKS(i,fraglist[i].idx,workdir,"","","NWCHEM")) 
+            push!(tasklist,TASKS(i,fraglist[i].idx,workdir,"","","NWCHEM",1)) 
             nwchemtask(tasklist[i],fraglist[i],atomlist[istart:ifinish],"DEFAULT")
             println(" ... done ")
         end  
@@ -184,6 +184,20 @@ function distributingtask()
                         end  
                         push!(LBcube,LBmat)
                     end 
+                    if uppercase(sline[1]) == "MULTINODES"
+                        mnodes = parse(Int32,sline[2])
+                        line=readline(LBread)
+                        sline=split(line)
+                        ntmp=length(sline) 
+                        MNvec=[]
+                        MNmat=[]
+                        for i in 1:ntmp
+                            push!(MNvec,parse(Int32,sline[i]))
+                        end
+                        push!(MNmat,mnodes)
+                        push!(MNmat,MNvec)
+                        push!(MNcube,MNmat)
+                    end 
                 end
             end
         end
@@ -200,6 +214,27 @@ function distributingtask()
     println("")
     flush(stdout)
 
+    # Multi-nodes case
+    if length(MNcube)>0
+        MNelems = Array{Int}(undef, total_frags)
+        for i in 1:total_frags
+            MNelems[i] = tasklist[i].fragid
+        end 
+        for i in 1:length(MNcube)
+            for j in 1:length(MNcube[i][2])
+                MNpos=findfirst(==(MNcube[i][2][j]),MNelems)
+                println("MNpos : ",MNpos)
+                if sizeof(MNpos) > 0
+                    ipos=MNpos[1]
+                    tasklist[ipos].nnodes=MNcube[i][1][j]
+                end 
+            end 
+        end
+    end 
+
+    #println(tasklist)
+    #stop()
+
 end
 
 
@@ -210,7 +245,7 @@ end
     for itask in tvec
         if itask != 0
             print("id",id,gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
-            RUNXX=`time ../../NWChemRUN $(tlist[itask].infile) $(tlist[itask].outfile) `
+            RUNXX=`time ../../NWChemRUN 5 $(tlist[itask].infile) $(tlist[itask].outfile) `
             tlist[itask].folder=string(tlist[itask].folder,"/",gethostname())
             println(" ",tlist[itask].folder) 
             if !isdir(tlist[itask].folder)
@@ -249,7 +284,20 @@ end
     for itask in tvec
         if itask != 0
             print("id",id,gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
-            RUNXX=`time ../../NWChemRUN $(tlist[itask].infile) $(tlist[itask].outfile) `
+            hostflag = " "
+            hostfile = " "
+            nmpi=5*tlist[itask].nnodes
+            if tlist[itask].nnodes > 1
+                hostflag = "-hostfile"
+                hostfile = "nodes$(id)"
+         
+                ##############
+
+            end
+            println("hostflag : ", hostflag, " hostfile : ", hostfile)
+            flush(stdout)
+
+####            # RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $(tlist[itask].infile) $(tlist[itask].outfile) `
             tlist[itask].folder=string(tlist[itask].folder,"/",gethostname())
             println(" ",tlist[itask].folder) 
             if !isdir(tlist[itask].folder)
@@ -266,7 +314,7 @@ end
             if IFDONE
                 println("JOB $(tlist[itask].infile) already done in another Worker")                
             else
-                run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
+####            #    run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
             end
             flush(stdout)
             flush(stderr)
@@ -290,17 +338,24 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
         if i == NNSLURM || LBfile == ""
             println("Matched the number of NODES between SLURM and Task-Pre-Assignment ") 
             println("    NSLURM_NODES : ", NNSLURM, "        NPRE_NODES : ", i)  
-            println("                  ------------           ")  
+            println("  ------------                ------------           ")  
 
             if LBfile != ""
                 for j in 1:length(LBcube[i])
-                    println("Tasks on node-",j,"  :  ", LBcube[i][j])
+                    println("  Tasks on the node-",j," :  ", LBcube[i][j])
                 end  
             else
-                println("Tasks on ALL-nodes :  ", LBcube[1][1])
+                println("  Tasks on ALL-nodes :  ", LBcube[1][1])
+            end
+
+            if length(MNcube) > 0
+                println("  ------------                ------------           ")  
+                for j in 1:length(MNcube)
+                    println("  Multi-nodes task-ID :  ", MNcube[j][2], " with ",MNcube[j][1]," nodes ")
+                end 
             end 
 
-            println("                  ------------           ")  
+            println("  ------------                ------------           ")  
         end  
     end
     println("Running the QC tasks ... ")
