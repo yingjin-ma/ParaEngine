@@ -1,0 +1,17 @@
+ start LoadBalanceApplication
+ title FRAG-i
+ 
+ geometry units an
+ end
+
+ basis
+   X-library-basis
+ end
+
+ dft  
+   dftxc 
+ end 
+
+ task dft
+ 
+

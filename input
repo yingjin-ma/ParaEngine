@@ -1,0 +1,8 @@
+
+!================ Testing input =================
+  task             DFT              FRAG
+  engine           CPU              NWChem
+  coord            LBtest20-simple05.pdb 
+  loadbalance      nodes_frags_test01.txt
+!================================================
+
