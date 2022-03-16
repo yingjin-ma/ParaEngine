@@ -238,7 +238,7 @@ function distributingtask()
 end
 
 
-@everywhere function NWChemRUN_SPAWNAT(tvec,tlist,id)
+@everywhere function NWChemRUN_SPAWNAT(tvec,tlist,id,snodes)
  
     println("taskvec  : ",tvec) 
     println("tasklist : ",tlist) 
@@ -277,32 +277,42 @@ end
     flush(stdout)
 end
 
-@everywhere function NWChemRUN_SPAWN(tvec,tlist,id)
+@everywhere function NWChemRUN_SPAWN(tvec,tlist,id,snodes)
  
     println("taskvec  : ",tvec) 
     println("tasklist : ",tlist) 
     for itask in tvec
         if itask != 0
+            hname = gethostname() 
             print("id",id,gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
+
+            tlist[itask].folder=string(tlist[itask].folder,"/",gethostname())
+            println(" ",tlist[itask].folder) 
+            if !isdir(tlist[itask].folder)
+                mkpath(tlist[itask].folder)
+            end 
+
             hostflag = " "
             hostfile = " "
             nmpi=5*tlist[itask].nnodes
             if tlist[itask].nnodes > 1
                 hostflag = "-hostfile"
                 hostfile = "nodes$(id)"
-         
-                ##############
-
+                ftmp = string(tlist[itask].folder,"/",hostfile)
+                io=open(ftmp,"w")
+                    println(io, hname," slots=5")
+                    for inn in 1:tlist[itask].nnodes
+                        if snodes[inn] != hname
+                            println("inn ", inn, " snodes[inn] : ", snodes[inn]) 
+                            println(io, snodes[inn]," slots=5")
+                        end 
+                    end 
+                close(io)
             end
             println("hostflag : ", hostflag, " hostfile : ", hostfile)
             flush(stdout)
 
-####            # RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $(tlist[itask].infile) $(tlist[itask].outfile) `
-            tlist[itask].folder=string(tlist[itask].folder,"/",gethostname())
-            println(" ",tlist[itask].folder) 
-            if !isdir(tlist[itask].folder)
-                mkpath(tlist[itask].folder)
-            end 
+            RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $(tlist[itask].infile) $(tlist[itask].outfile) `
 
             try
                 run(`mv $(workdir)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
@@ -314,7 +324,7 @@ end
             if IFDONE
                 println("JOB $(tlist[itask].infile) already done in another Worker")                
             else
-####            #    run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
+                run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
             end
             flush(stdout)
             flush(stderr)
@@ -362,9 +372,13 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
     println("    Number of   cores : ", nprocs())
     println("    Number of workers : ", nworkers())
     if IFSLURM 
+        SNODES = Array{String}(undef, NNSLURM)
+        i=0 
         open("nodelist","r") do stream
             for line in eachline(stream)
                 println(line)
+                i = i + 1
+                SNODES[i] = line
             end
         end 
     end 
@@ -395,9 +409,9 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
         end   
  
         if ISPAWN == 1 
-            push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist,inode))
+            push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist,inode,SNODES))
         elseif ISPAWN == 2
-            push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBtmp,tasklist,inode))
+            push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBtmp,tasklist,inode,SNODES))
         end 
     end 
 
