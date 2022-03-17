@@ -244,13 +244,84 @@ end
     println("tasklist : ",tlist) 
     for itask in tvec
         if itask != 0
+            hname = gethostname() 
             print("id",id,gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
-            RUNXX=`time ../../NWChemRUN 5 $(tlist[itask].infile) $(tlist[itask].outfile) `
+
+            hostlock0=tlist[itask].folder
+            hostlock = string(hostlock0,"/","hostlock")
             tlist[itask].folder=string(tlist[itask].folder,"/",gethostname())
-            println(" ",tlist[itask].folder) 
+            println(" ",tlist[itask].folder)
             if !isdir(tlist[itask].folder)
                 mkpath(tlist[itask].folder)
             end
+
+            if isfile(hostlock)
+                ilock = -1
+                while ilock != 1
+                    lockcheck=open(hostlock,"r")
+                    lines=readlines(hostlock)
+                    if length(lines) > 0
+                        for line in lines
+                            if occursin(hname,line)
+                                sleep(5)
+                                println(" .. waiting for the jobs in this host (",hname,") ")
+                            elseif length(snodes)-length(lines) < tlist[itask].nnodes
+                                sleep(5)
+                                println(" .. waiting for the jobs out of host (",hname,") ")
+                            else
+                                ilock = 1
+                            end
+                        end
+                        close(lockcheck)
+                    else
+                        ilock = 1
+                        println(" .. no hostlock, goon running ")
+                    end
+                end
+            else
+                println(" .. no hostlock, goon running ")
+            end
+
+            nmpi=5*tlist[itask].nnodes
+
+            if isfile(hostlock)
+                iolock=open(hostlock,"a+")
+            else
+                iolock=open(hostlock,"w")
+            end
+
+            lockvec  = []
+            if tlist[itask].nnodes > 1
+                hostflag = "-hostfile"
+                hostfile = "nodes$(id)"
+
+                ftmp = string(tlist[itask].folder,"/",hostfile)
+                io=open(ftmp,"w")
+                println(io, hname," slots=5")
+                for inn in 1:tlist[itask].nnodes
+                    if snodes[inn] != hname
+                        println("inn ", inn, " snodes[inn] : ", snodes[inn])
+                        println(io, snodes[inn]," slots=5")
+                        println(iolock, snodes[inn])
+                        push!(lockvec,snodes[inn])
+                    end
+                end
+                close(io)
+            else
+                hostflag = " "
+                hostfile = " "
+
+                println(iolock, hname)
+                push!(lockvec,hname)
+
+            end
+
+            close(iolock)
+
+            println("hostflag : ", hostflag, " hostfile : ", hostfile)
+            flush(stdout)
+
+            RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $(tlist[itask].infile) $(tlist[itask].outfile) `
 
             try  
                 run(`mv $(workdir)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
@@ -270,6 +341,11 @@ end
             ccheck=string(tlist[itask].folder,"/",tlist[itask].outfile)
             rdlast=@spawnat id check_last_NWChem(ccheck,IOrecord,IFDONE)
             fetch(rdlast)
+
+            for i in length(lockvec)
+                println("lockvec[",i,"] : ", lockvec[i])
+                run(`sed -i "/$(lockvec[i])/d" $(hostlock)`)
+            end
 
         end 
     end 
@@ -293,7 +369,7 @@ end
             if !isdir(tlist[itask].folder)
                 mkpath(tlist[itask].folder)
             end 
-            
+
             if isfile(hostlock)
                 ilock = -1 
                 while ilock != 1 
@@ -302,8 +378,11 @@ end
                     if length(lines) > 0
                         for line in lines
                             if occursin(hname,line) 
-                                sleep(10)
-                                println(" .. waiting for the jobs in this host (",hname,") ")                
+                                sleep(5)
+                                println(" .. waiting for the jobs in this host (",hname,") ")               
+                            elseif length(snodes)-length(lines) < tlist[itask].nnodes 
+                                sleep(5)
+                                println(" .. waiting for the jobs out of host (",hname,") ")               
                             else
                                 ilock = 1
                             end 
@@ -318,35 +397,42 @@ end
                 println(" .. no hostlock, goon running ")
             end 
 
-            hostflag = " "
-            hostfile = " "
             nmpi=5*tlist[itask].nnodes
+
+            if isfile(hostlock)
+                iolock=open(hostlock,"a+")
+            else
+                iolock=open(hostlock,"w")
+            end 
+
+            lockvec  = [] 
             if tlist[itask].nnodes > 1
                 hostflag = "-hostfile"
                 hostfile = "nodes$(id)"
 
-                if isfile(hostlock)
-                    iolock=open(hostlock,"a+")
-                else
-                    iolock=open(hostlock,"w")
-                end 
-
-                lockvec  = [] 
                 ftmp = string(tlist[itask].folder,"/",hostfile)
                 io=open(ftmp,"w")
-                    println(io, hname," slots=5")
-                    for inn in 1:tlist[itask].nnodes
-                        if snodes[inn] != hname
-                            println("inn ", inn, " snodes[inn] : ", snodes[inn]) 
-                            println(io, snodes[inn]," slots=5")
-                            println(iolock, snodes[inn])
-                            push!(lockvec,snodes[inn])
-                        end 
+                println(io, hname," slots=5")
+                for inn in 1:tlist[itask].nnodes
+                    if snodes[inn] != hname
+                        println("inn ", inn, " snodes[inn] : ", snodes[inn]) 
+                        println(io, snodes[inn]," slots=5")
+                        println(iolock, snodes[inn])
+                        push!(lockvec,snodes[inn])
                     end 
+                end 
                 close(io)
-                close(iolock)
+            else        
+                hostflag = " "
+                hostfile = " "
+
+                println(iolock, hname)
+                push!(lockvec,hname)
 
             end
+
+            close(iolock)
+
 
             println("hostflag : ", hostflag, " hostfile : ", hostfile)
             flush(stdout)
@@ -372,12 +458,10 @@ end
             rdlast=@spawn check_last_NWChem(ccheck,IOrecord,IFDONE)
             fetch(rdlast)
 
-            if tlist[itask].nnodes > 1
-                for i in length(lockvec)
-                    println("lockvec[",i,"] : ", lockvec[i])
-                    run(`sed -i "/$(lockvec[i])/d" $(hostlock)`)
-                end 
-            end
+            for i in length(lockvec)
+                println("lockvec[",i,"] : ", lockvec[i])
+                run(`sed -i "/$(lockvec[i])/d" $(hostlock)`)
+            end 
 
         end 
     end 

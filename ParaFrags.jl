@@ -5,6 +5,7 @@
 # 2022.2.28  Initial pass for Julia version, using Julia to refactering the ParaFrags 
 #            A lot of works need to do ...  
 # 2022.3.14  Both dynamic and static load-balancing ways can work
+# 2022.3.17  Multi-nodes case can work
 
 
 using Distributed
