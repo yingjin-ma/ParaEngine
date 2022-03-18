@@ -197,6 +197,7 @@ function distributingtask()
                         push!(MNmat,mnodes)
                         push!(MNmat,MNvec)
                         push!(MNcube,MNmat)
+                        #println("MNcube : ",MNcube)
                     end 
                 end
             end
@@ -223,10 +224,13 @@ function distributingtask()
         for i in 1:length(MNcube)
             for j in 1:length(MNcube[i][2])
                 MNpos=findfirst(==(MNcube[i][2][j]),MNelems)
-                println("MNpos : ",MNpos)
+                #println("MNpos : ",MNpos)
                 if sizeof(MNpos) > 0
+                    #println("MNpos : ",MNpos, " i : " , i, " j : ", j)
+                    #println("MNcube[i] : ", MNcube[i])
+                    #println("MNcube[i][1] : ", MNcube[i][1])
                     ipos=MNpos[1]
-                    tasklist[ipos].nnodes=MNcube[i][1][j]
+                    tasklist[ipos].nnodes=MNcube[i][1][1]
                 end 
             end 
         end
@@ -357,6 +361,7 @@ end
  
     println("taskvec  : ",tvec) 
     println("tasklist : ",tlist) 
+
     for itask in tvec
         if itask != 0
             hname = gethostname() 
@@ -375,23 +380,30 @@ end
                 while ilock != 1 
                     lockcheck=open(hostlock,"r")
                     lines=readlines(hostlock)
+                    nlines=length(lines)
                     if length(lines) > 0
+                        EXnodes = Array{String}(undef, nlines)
+                        i=0
                         for line in lines
-                            if occursin(hname,line) 
-                                sleep(5)
-                                println(" .. waiting for the jobs in this host (",hname,") ")               
-                            elseif length(snodes)-length(lines) < tlist[itask].nnodes 
-                                sleep(5)
-                                println(" .. waiting for the jobs out of host (",hname,") ")               
-                            else
-                                ilock = 1
-                            end 
-                        end   
-                        close(lockcheck) 
+                            i=i+1
+                            EXnodes[i] = line
+                        end
+                        ipos=findfirst(==(hname),EXnodes)
+                        if sizeof(ipos)>0 
+                            sleep(5)
+                            println(" .. waiting for the jobs in this host (",hname,") ")               
+                        #elseif length(snodes)-length(lines) < tlist[itask].nnodes 
+                        #    sleep(5)
+                        #    println(" .. waiting for the jobs out of host (",hname,") ")               
+                        else
+                            ilock = 1
+                        end 
+
                     else
                         ilock = 1
-                        println(" .. no hostlock, goon running ")
+                        println(" .. no host is locked, goon running ")
                     end  
+                    close(lockcheck) 
                 end 
             else
                 println(" .. no hostlock, goon running ")
@@ -405,7 +417,7 @@ end
                 iolock=open(hostlock,"w")
             end 
 
-            lockvec  = [] 
+            global lockvec  = [] 
             if tlist[itask].nnodes > 1
                 hostflag = "-hostfile"
                 hostfile = "nodes$(id)"
@@ -413,26 +425,81 @@ end
                 ftmp = string(tlist[itask].folder,"/",hostfile)
                 io=open(ftmp,"w")
                 println(io, hname," slots=5")
-                for inn in 1:tlist[itask].nnodes
-                    if snodes[inn] != hname
-                        println("inn ", inn, " snodes[inn] : ", snodes[inn]) 
-                        println(io, snodes[inn]," slots=5")
-                        println(iolock, snodes[inn])
-                        push!(lockvec,snodes[inn])
-                    end 
-                end 
+
+                ihfile = -1
+                while ihfile != 1
+                    lockcheck=open(hostlock,"r")
+                    lines=readlines(hostlock)
+                    nlines=length(lines) 
+                    if nlines > 0
+                        if length(snodes)-length(lines) < tlist[itask].nnodes
+                            sleep(5)
+                            println(" .. waiting for the jobs out of host (",hname,") for multi-nodes")
+                        else                        
+                            EXnodes = Array{String}(undef, nlines)
+                            i=0
+                            for line in lines
+                                i=i+1  
+                                EXnodes[i] = line
+                            end
+
+                            inodes=1
+                            for inn in 1:length(snodes)
+                                if snodes[inn] != hname
+                                    ipos=findfirst(==(snodes[inn]),EXnodes)
+                                    if sizeof(ipos) > 0
+                                        println(">> snodes[",inn,"] : ", snodes[inn]," is not available in multi-nodes case ")                                                                            
+                                    else 
+                                        inodes=inodes+1
+                                        println(">> snodes[",inn,"] : ", snodes[inn]," is available in the multi-nodes case ") 
+                                        println(io, snodes[inn]," slots=5")
+                                        println(iolock, snodes[inn])
+                                        push!(lockvec,snodes[inn])
+                                        if inodes >= tlist[itask].nnodes
+                                            break
+                                        end   
+                                    end 
+                                end 
+                            end  
+  
+                            println(iolock, hname)
+                            push!(lockvec,hname)
+                            ihfile = 1
+
+                        end                        
+                    else
+                        
+                        inodes=1
+                        for inn in 1:length(snodes)
+                            if snodes[inn] != hname
+                                inodes=inodes+1
+                                println(">> snodes[",inn,"] : ", snodes[inn]," is available in the multi-nodes case ")
+                                println(io, snodes[inn]," slots=5")
+                                println(iolock, snodes[inn])
+                                push!(lockvec,snodes[inn])
+                                if inodes >= tlist[itask].nnodes
+                                    break
+                                end      
+                            end
+                        end
+
+                        println(iolock, hname)
+                        push!(lockvec,hname)
+                        ihfile = 1 
+                        println(" .. hosts are availavle, goon running ")
+
+                    end
+                    close(lockcheck) 
+                end
                 close(io)
             else        
                 hostflag = " "
                 hostfile = " "
-
                 println(iolock, hname)
                 push!(lockvec,hname)
-
             end
 
             close(iolock)
-
 
             println("hostflag : ", hostflag, " hostfile : ", hostfile)
             flush(stdout)
@@ -458,7 +525,7 @@ end
             rdlast=@spawn check_last_NWChem(ccheck,IOrecord,IFDONE)
             fetch(rdlast)
 
-            for i in length(lockvec)
+            for i in 1:length(lockvec)
                 println("lockvec[",i,"] : ", lockvec[i])
                 run(`sed -i "/$(lockvec[i])/d" $(hostlock)`)
             end 
@@ -526,6 +593,7 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
 
     run=[]
     for i in 1:NNSLURM
+        sleep(0.1)
         if IFSLURM
           inode = i+1
         else
