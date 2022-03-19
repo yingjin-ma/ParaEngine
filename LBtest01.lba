@@ -11,10 +11,10 @@ nodes 3
 3 6 9 12
 
 nodes 4
-2 5 9  6 10 4 8 12
-1 6 10 11 12 12 3 7 
-3 7 11 4 8 12 6 10
-4 8 12 1 6 10 5 9
+2 5 9  
+1 6 10  
+3 7 11 
+4 8 12 
 
 nodes 5
 1 6 11
@@ -23,9 +23,9 @@ nodes 5
 4 9
 5 10
 
-multinodes 3
-1 6  
+#multinodes 3
+#1 6  
 
-multinodes 2
-4 8 
+#multinodes 2
+#4 8 
 

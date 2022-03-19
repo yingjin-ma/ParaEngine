@@ -548,7 +548,17 @@ end
 
             for i in 1:length(lockvec)
                 println("lockvec[",i,"] : ", lockvec[i])
-                run(`sed -i "/$(lockvec[i])/d" $(hostlock)`)
+                global ised = -1
+                while ised != 1
+                    try 
+                        run(`sed -i "/$(lockvec[i])/d" $(hostlock)`)
+                        println("==> Shell's sed done")                
+                        ised = 1
+                    catch err
+                        sleep(0.1) 
+                        println("==> Re-try the shell's sed operations")                
+                    end
+                end   
             end 
 
         end 
