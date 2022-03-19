@@ -343,7 +343,7 @@ end
             flush(stderr)
 
             ccheck=string(tlist[itask].folder,"/",tlist[itask].outfile)
-            rdlast=@spawnat id check_last_NWChem(ccheck,IOrecord,IFDONE)
+            rdlast=@spawn check_last_NWChem(ccheck,IOrecord,IFDONE)
             fetch(rdlast)
 
             for i in length(lockvec)
@@ -412,10 +412,13 @@ end
             nmpi=5*tlist[itask].nnodes
 
             if isfile(hostlock)
-                iolock=open(hostlock,"a+")
+                iolock=open(hostlock,"a+",lock = true)
+                println("iolock was opened with a+")
             else
-                iolock=open(hostlock,"w")
+                iolock=open(hostlock,"w",lock = true)
+                println("iolock was opened with w")
             end 
+            flush(stdout)
 
             global lockvec  = [] 
             if tlist[itask].nnodes > 1
@@ -428,8 +431,11 @@ end
 
                 ihfile = -1
                 while ihfile != 1
-                    lockcheck=open(hostlock,"r")
-                    lines=readlines(hostlock)
+                    hlockid=string(hostlock,"$(id)")
+                    run(`cp $(hostlock) $(hlockid)`)                   
+                    sleep(0.01) 
+                    lockcheck=open(hlockid,"r")
+                    lines=readlines(hlockid)
                     nlines=length(lines) 
                     if nlines > 0
                         if length(snodes)-length(lines) < tlist[itask].nnodes
@@ -462,9 +468,19 @@ end
                                 end 
                             end  
   
+                            #println("Out of the for loop for multi-nodes, nline > 0 case")
                             println(iolock, hname)
                             push!(lockvec,hname)
                             ihfile = 1
+                            #println("iolock was about to closed in multi-nodes, nline > 0 case")
+                            flush(stdout)
+                            try 
+                                close(iolock)
+                                println("iolock was closed in multi-nodes, nline > 0 case")
+                            catch err
+                                println("iolock was closed in multi-nodes (previously by break?)")             
+                            end 
+                            flush(stdout)
 
                         end                        
                     else
@@ -487,6 +503,9 @@ end
                         push!(lockvec,hname)
                         ihfile = 1 
                         println(" .. hosts are availavle, goon running ")
+                        close(iolock)
+                        println("iolock was closed in multi-nodes, nline = 0 case")
+                        flush(stdout)
 
                     end
                     close(lockcheck) 
@@ -497,9 +516,11 @@ end
                 hostfile = " "
                 println(iolock, hname)
                 push!(lockvec,hname)
+                close(iolock)
+                println("iolock was closed in single node case")
+                flush(stdout)
             end
 
-            close(iolock)
 
             println("hostflag : ", hostflag, " hostfile : ", hostfile)
             flush(stdout)
@@ -522,7 +543,7 @@ end
             flush(stderr)
 
             ccheck=string(tlist[itask].folder,"/",tlist[itask].outfile)
-            rdlast=@spawn check_last_NWChem(ccheck,IOrecord,IFDONE)
+            rdlast=@spawnat id check_last_NWChem(ccheck,IOrecord,IFDONE)
             fetch(rdlast)
 
             for i in 1:length(lockvec)
