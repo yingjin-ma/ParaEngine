@@ -126,9 +126,77 @@ function readpdbfile(inpdb)
         println(fraglist[i]) 
     end
 
+end
+
+function readsuits(suit)
+ 
+    if !isdir(suit)
+        println("The target suit $(suit) is not exist") 
+        exit("Stopped. Reason: $(suit) is not exist.")
+    end
+
+    println("suit : ", suit)
+    filelist = readdir(suit)
+    println(filelist)
+
+    global atomlist=[]
+    natoms= 0
+    ifrag = 0 
+    for ifile in filelist
+        ifile = string(suit,"/",ifile) 
+        ifrag = ifrag + 1
+        println("ifile : ", ifile)
+        open(ifile,"r") do stream           
+            for line in eachline(stream)        
+                sline=split(line)
+                ntmp=length(sline)
+                !!!!!!!!!!!  SDF, not PDB !!!!!!!!!!
+                if ntmp > 0
+                    if uppercase(sline[1]) == "HETATM" || uppercase(sline[1]) == "ATOM"
+                        icharge= 0
+                        natoms = natoms+1
+                        #println(line[23:26],line[31:38],line[39:46],line[47:54])
+                        #ifrag = parse(Int32,line[23:26])
+                           dx = parse(Float64,line[31:38])
+                           dy = parse(Float64,line[39:46])
+                           dz = parse(Float64,line[47:54])
+                        if line[79:79] != " "
+                            # println("line : ",line[79:79])
+                            icharge = parse(Int32,line[79:79])
+                        end
+                        if length(line) > 80
+                            icharge = parse(Int32,line[81:82])
+                            push!(atomlist,ATOMS(natoms,ifrag,icharge,line[13:16],(dx,dy,dz),0.0))
+                        else
+                            if line[80:80] == "-"
+                                icharge = -1 * icharge
+                            end
+                            push!(atomlist,ATOMS(natoms,ifrag,icharge,line[13:16],(dx,dy,dz),0.0))
+                        end
+                    end
+                end
+            end 
+        end  
+    end 
+    global total_atoms=natoms
+    
+    for i in 1:100
+        if i > total_atoms
+            break
+        else
+            println(atomlist[i])
+        end
+    end
+    if total_atoms > 100
+        println("... (more) ")
+    end
+
+    exit()
+
 end 
 
 function readinp(infile)
+
     open(infile,"r") do stream
         for line in eachline(stream)
             sline=split(line)
@@ -161,12 +229,17 @@ function readinp(infile)
                 if uppercase(sline[1]) == "WORKDIR"
                     global workdir = sline[2] 
                 end
+                if uppercase(sline[1]) == "SUIT"
+                    global targetsuit = sline[2] 
+                    readsuits(targetsuit)
+                end
             end 
         end
     end
     #println("runtype,runtype2,qcdriver,pdbfile,LBfile")
     #println(runtype,runtype2,qcdriver,pdbfile,LBfile)
     #return runtype,runtype2,qcdriver,pdbfile,LBfile
+
 end 
 
 
