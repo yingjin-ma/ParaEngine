@@ -9,7 +9,7 @@ MNcube   = []
 @everywhere IOrecord = ""
 @everywhere IFDONE   = false
 
-struct ATOMS
+mutable struct ATOMS
       idx::Int
     ifrag::Int
   icharge::Int 
@@ -18,7 +18,7 @@ struct ATOMS
        ZZ::Float64
 end 
 
-struct FRAGS
+mutable struct FRAGS
       idx::Int
     iatom::Int
    natoms::Int

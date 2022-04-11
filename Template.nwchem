@@ -1,6 +1,8 @@
  start LoadBalanceApplication
  title FRAG-i
  
+ CHARGE 
+
  geometry units an
  end
 

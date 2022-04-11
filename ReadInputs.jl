@@ -1,3 +1,28 @@
+function getmult(frag,atoms)
+
+    elemdict=Dict( "H" => 1,
+               "Li" => 3, "Be" => 4, "B" => 5, "C" => 6, "N" => 7, "O" => 8, "F" => 9,
+               "P" => 15, "S" => 16, "Cl" => 17 )
+
+    istart  = frag.iatom 
+    ifinish = frag.iatom + frag.natoms - 1
+
+    nele=0
+    for i in istart:ifinish
+        # println(" ELEM : ",atoms[i].elem)
+        ielem = elemdict[strip(atoms[i].elem)]
+        nele = nele + ielem
+    end 
+
+    nele = nele - frag.icharge
+    imod = mod(nele,2)
+
+    frag.multiple = 2 * imod +1
+
+    # println("nele, Multi", nele, frag.multiple)
+
+end
+
 function readpdbfile(inpdb)
 
     # Tested, not used
@@ -14,24 +39,44 @@ function readpdbfile(inpdb)
             ntmp=length(sline)
             if ntmp > 0
                 if uppercase(sline[1]) == "HETATM" || uppercase(sline[1]) == "ATOM"
-                   natoms = natoms+1    
-                   # println(line[23:26],line[31:38],line[39:46],line[47:54]) 
+                    icharge= 0
+                    natoms = natoms+1    
+                    #println(line[23:26],line[31:38],line[39:46],line[47:54]) 
                     ifrag = parse(Int32,line[23:26])
-                  icharge = 0 
                        dx = parse(Float64,line[31:38])              
                        dy = parse(Float64,line[39:46])              
                        dz = parse(Float64,line[47:54])              
+                    if line[79:79] != " "
+                        # println("line : ",line[79:79])  
+                        icharge = parse(Int32,line[79:79])                        
+                    end
                     if length(line) > 80
                         icharge = parse(Int32,line[81:82])
                         push!(atomlist,ATOMS(natoms,ifrag,icharge,line[13:16],(dx,dy,dz),0.0))
-                    else                              
+                    else                             
+                        if line[80:80] == "-"
+                            icharge = -1 * icharge   
+                        end
                         push!(atomlist,ATOMS(natoms,ifrag,icharge,line[13:16],(dx,dy,dz),0.0))
                     end   
                 end 
             end 
         end 
     end 
-    global total_atoms=natoms  
+    global total_atoms=natoms 
+
+    ifrag=1
+    for i in 1:total_atoms-1
+        idiff = -1
+        if atomlist[i].ifrag != atomlist[i+1].ifrag
+            idiff = 1
+        end         
+        atomlist[i].ifrag = ifrag
+        if idiff == 1
+            ifrag = ifrag + 1
+        end
+    end 
+    atomlist[total_atoms].ifrag = ifrag
 
     for i in 1:100
         if i > total_atoms  
@@ -64,7 +109,8 @@ function readpdbfile(inpdb)
             natoms_frg=natoms_frg+1
         end 
         if atomlist[i].icharge != 0
-            icharge=icharge+atomlist[i][3]
+            #println("atomlist[i][3] : ",atomlist[i].icharge)
+            icharge=icharge+atomlist[i].icharge
         end
         if i == total_atoms
             istart=atomlist[i].idx-natoms_frg+1 
@@ -73,10 +119,12 @@ function readpdbfile(inpdb)
     end
     global total_frags=ifrag
 
-#    println("total_frags : ",total_frags) 
-#    for i in 1:total_frags
-#        println(fraglist[i]) 
-#    end 
+    println("total_frags : ",total_frags) 
+    for i in 1:total_frags
+        getmult(fraglist[i],atomlist)
+        println(" ==== ")
+        println(fraglist[i]) 
+    end
 
 end 
 

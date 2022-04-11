@@ -94,7 +94,7 @@ function nwchemtask(task,frag,atoms,par)
     infile=string(workdir,"/Frag-$(fragidx).nw")
     open(infile,"w") do nwinp
         txt = read("Template.nwchem",String)
-        txt = replace(txt,"FRAG-i" => "Frag-$(fragidx)","X-library-basis" => "* library 6-31g","dftxc" => "xc m06-2x")
+        txt = replace(txt,"FRAG-i" => "Frag-$(fragidx)","X-library-basis" => "* library 6-31g","dftxc" => "xc m06-2x", "CHARGE" => "charge $(frag.icharge)" )
         print(nwinp,txt)
     end  
 
@@ -105,7 +105,7 @@ function nwchemtask(task,frag,atoms,par)
         end
     end
 
-    run(`sed -i "4r $inXYZ" $infile`)
+    run(`sed -i "6r $inXYZ" $infile`)
 
     task.infile  = "Frag-$(fragidx).nw"
     task.outfile = "Frag-$(fragidx).out"
@@ -548,7 +548,17 @@ end
 
             for i in 1:length(lockvec)
                 println("lockvec[",i,"] : ", lockvec[i])
-                run(`sed -i "/$(lockvec[i])/d" $(hostlock)`)
+                global ised = -1
+                while ised != 1
+                    try 
+                        run(`sed -i "/$(lockvec[i])/d" $(hostlock)`)
+                        println("==> Shell's sed done")                
+                        ised = 1
+                    catch err
+                        sleep(0.1) 
+                        println("==> Re-try the shell's sed operations")                
+                    end
+                end   
             end 
 
         end 
