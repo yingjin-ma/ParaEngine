@@ -7,9 +7,11 @@ function getmult(frag,atoms)
     istart  = frag.iatom 
     ifinish = frag.iatom + frag.natoms - 1
 
+    #println(" istart, ifinish : ", istart, "  " , ifinish)
+
     nele=0
     for i in istart:ifinish
-        # println(" ELEM : ",atoms[i].elem)
+        #println(" ELEM : ",atoms[i].elem)
         ielem = elemdict[strip(atoms[i].elem)]
         nele = nele + ielem
     end 
@@ -19,7 +21,7 @@ function getmult(frag,atoms)
 
     frag.multiple = 2 * imod +1
 
-    # println("nele, Multi", nele, frag.multiple)
+    #println("nele, Multi", nele, frag.multiple)
 
 end
 
@@ -99,7 +101,7 @@ function readpdbfile(inpdb)
         if atomlist[i].ifrag != ifrag
             if ifrag != 0
                 istart=atomlist[i].idx-natoms_frg
-                push!(fraglist,FRAGS(ifrag,istart,natoms_frg,icharge,1,0.0))
+                push!(fraglist,FRAGS(ifrag,istart,natoms_frg,icharge,1,"unnamed",0.0))
             end 
             ifrag = ifrag+1
             icharge    = 0 
@@ -114,7 +116,7 @@ function readpdbfile(inpdb)
         end
         if i == total_atoms
             istart=atomlist[i].idx-natoms_frg+1 
-            push!(fraglist,FRAGS(ifrag,istart,natoms_frg,icharge,1,0.0))
+            push!(fraglist,FRAGS(ifrag,istart,natoms_frg,icharge,1,"unnamed",0.0))
         end 
     end
     global total_frags=ifrag
@@ -138,44 +140,54 @@ function readsuits(suit)
     println("suit : ", suit)
     filelist = readdir(suit)
     println(filelist)
+    println("")
 
     global atomlist=[]
     natoms= 0
     ifrag = 0 
+    names = []
     for ifile in filelist
         ifile = string(suit,"/",ifile) 
         ifrag = ifrag + 1
-        println("ifile : ", ifile)
-        open(ifile,"r") do stream           
-            for line in eachline(stream)        
+        #println("ifile : ", ifile)
+        open(ifile,"r") do molread
+            name  = readline(molread)
+            if name == ""
+                sline  = split(ifile,"/")
+                ntmp   = length(sline)
+                ssline = split(sline[ntmp],".")
+                name   = ssline[1] 
+            end
+            push!(names,name)
+            readline(molread)          
+            readline(molread)          
+            line  = readline(molread)          
+            sline = split(line)
+            natom = parse(Int32,sline[1]) 
+            nconn = parse(Int32,sline[2])
+            for i in 1:natom
+                line=readline(molread)
                 sline=split(line)
-                ntmp=length(sline)
-                !!!!!!!!!!!  SDF, not PDB !!!!!!!!!!
-                if ntmp > 0
-                    if uppercase(sline[1]) == "HETATM" || uppercase(sline[1]) == "ATOM"
-                        icharge= 0
-                        natoms = natoms+1
-                        #println(line[23:26],line[31:38],line[39:46],line[47:54])
-                        #ifrag = parse(Int32,line[23:26])
-                           dx = parse(Float64,line[31:38])
-                           dy = parse(Float64,line[39:46])
-                           dz = parse(Float64,line[47:54])
-                        if line[79:79] != " "
-                            # println("line : ",line[79:79])
-                            icharge = parse(Int32,line[79:79])
-                        end
-                        if length(line) > 80
-                            icharge = parse(Int32,line[81:82])
-                            push!(atomlist,ATOMS(natoms,ifrag,icharge,line[13:16],(dx,dy,dz),0.0))
-                        else
-                            if line[80:80] == "-"
-                                icharge = -1 * icharge
-                            end
-                            push!(atomlist,ATOMS(natoms,ifrag,icharge,line[13:16],(dx,dy,dz),0.0))
-                        end
-                    end
-                end
+                icharge=0 
+                dx = parse(Float64,sline[1])
+                dy = parse(Float64,sline[2])
+                dz = parse(Float64,sline[3])
+                push!(atomlist,ATOMS(i+natoms,ifrag,icharge,sline[4],(dx,dy,dz),0.0))
+            end
+            for i in 1:nconn
+                readline(molread)
             end 
+            line  = readline(molread)
+            sline = split(line)
+            if sline[2] == "CHG"
+                nelec = parse(Int32,sline[3])
+                for i in 0:nelec-1
+                    iatom   = parse(Int32,sline[2*i+4])
+                    icharge = parse(Int32,sline[2*i+5])
+                    atomlist[iatom+natoms].icharge=icharge
+                end 
+            end
+            natoms=natoms+natom
         end  
     end 
     global total_atoms=natoms
@@ -191,7 +203,44 @@ function readsuits(suit)
         println("... (more) ")
     end
 
-    exit()
+    ifrag=0
+    global fraglist=[]
+    icharge    = 0
+    multiple   = 1
+    natoms_frg = 0
+    for i in 1:total_atoms
+        #println("atomlist[i][1] : ",atomlist[i].ifrag)
+        if atomlist[i].ifrag != ifrag
+            if ifrag != 0
+                istart=atomlist[i].idx-natoms_frg
+                push!(fraglist,FRAGS(ifrag,istart,natoms_frg,icharge,1,names[ifrag],0.0))
+            end
+            ifrag = ifrag+1
+            icharge    = 0
+            natoms_frg = 0
+        end
+        if atomlist[i].ifrag == ifrag
+            natoms_frg=natoms_frg+1
+        end
+        if atomlist[i].icharge != 0
+            #println("atomlist[i][3] : ",atomlist[i].icharge)
+            icharge=icharge+atomlist[i].icharge
+        end
+        if i == total_atoms
+            istart=atomlist[i].idx-natoms_frg+1
+            push!(fraglist,FRAGS(ifrag,istart,natoms_frg,icharge,1,names[ifrag],0.0))
+        end
+    end
+    global total_frags=ifrag
+
+    println("total molecules in suit : ",total_frags)
+    for i in 1:total_frags
+        #println(" ==== 0 ==== ")
+        getmult(fraglist[i],atomlist)
+        #println(" ==== ")
+        println(fraglist[i])
+        #println(" ==== 2 ==== ")
+    end
 
 end 
 

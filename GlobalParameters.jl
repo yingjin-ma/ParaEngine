@@ -24,6 +24,7 @@ mutable struct FRAGS
    natoms::Int
   icharge::Int
  multiple::Int
+     name::String
    energy::Float64
 end 
 
