@@ -15,6 +15,17 @@ using BenchmarkTools
     end
 end
 
+@everywhere function read_last_abnormal(file)
+    r=""
+    open(file) do io
+        seekend(io)       
+        skip(io, -512)  
+        r=read(io,String)
+        return r
+    end
+end
+
+# For further details see manual section:
 
 #=
 @everywhere function check_last_NWChem_OLD(out,IOrecord,IFDONE)
@@ -55,7 +66,7 @@ end
                 tailout=read_last(out)
                 println(tailout)
                 if occursin("Total times  cpu:",tailout)
-                  break
+                    break
                 end
             end
         end
@@ -70,14 +81,28 @@ end
         println("  ")
         println("IFDONE is TRUE; Skip this task ... ")
         println("  ")
-    else
+    else    
+        ii=0   
         while true
+            ii = ii + 1
             sleep(5)
-            tailout=read_last(out)
+            tailout  = read_last(out)
             println(tailout)
+
             if occursin("Total times  cpu:",tailout)
                 break
             end
+ 
+            if mod(ii,5) == 0
+                println("")
+                abnormal = read_last_abnormal(out)
+                println(" abnormal check :", abnormal)
+                println("")
+                if occursin("For further details see manual",abnormal)
+                    break
+                end 
+            end if
+
         end
     end
     flush(stdout) 
@@ -89,9 +114,15 @@ function nwchemtask(task,frag,atoms,par)
     # Generating NWChem headers
    
     fragidx=lpad(frag.idx,8,"0")
+       name=frag.name
     #run(`cp Template.nwchem $(fragidx).nw`) 
  
-    infile=string(workdir,"/Frag-$(fragidx).nw")
+    if frag.name!="unnamed"
+        infile=string(workdir,"/$(name).nw")
+    else 
+        infile=string(workdir,"/Frag-$(fragidx).nw")
+    end 
+
     open(infile,"w") do nwinp
         txt = read("Template.nwchem",String)
         txt = replace(txt,"FRAG-i" => "Frag-$(fragidx)","X-library-basis" => "* library 6-31g","dftxc" => "xc m06-2x", "CHARGE" => "charge $(frag.icharge)" )
@@ -107,8 +138,13 @@ function nwchemtask(task,frag,atoms,par)
 
     run(`sed -i "6r $inXYZ" $infile`)
 
-    task.infile  = "Frag-$(fragidx).nw"
-    task.outfile = "Frag-$(fragidx).out"
+    if frag.name!="unnamed"
+        task.infile  = "$(name).nw"
+        task.outfile = "$(name).out" 
+    else
+        task.infile  = "Frag-$(fragidx).nw"
+        task.outfile = "Frag-$(fragidx).out"
+    end 
 
     flush(stdout)
 
