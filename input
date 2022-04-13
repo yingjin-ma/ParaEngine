@@ -2,7 +2,7 @@
 !================ Testing input =================
   task             DFT              FRAG
   engine           CPU              NWChem
-  coord            LBtest01.pdb
-  loadbalance      LBtest01.lba
+  workdir          ./workdir-20nodes
+  suit             ../Arxiv1911.05569v1_sdfs_H_Part1
 !================================================
 

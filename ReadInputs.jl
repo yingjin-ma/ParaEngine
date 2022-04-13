@@ -149,22 +149,23 @@ function readsuits(suit)
     for ifile in filelist
         ifile = string(suit,"/",ifile) 
         ifrag = ifrag + 1
-        #println("ifile : ", ifile)
+        println("ifile : ", ifile)
         open(ifile,"r") do molread
             name  = readline(molread)
-            if name == ""
-                sline  = split(ifile,"/")
-                ntmp   = length(sline)
-                ssline = split(sline[ntmp],".")
-                name   = ssline[1] 
-            end
+            #if name == ""
+            sline  = split(ifile,"/")
+            ntmp   = length(sline)
+            ssline = split(sline[ntmp],".")
+            name   = ssline[1] 
+            #end
             push!(names,name)
             readline(molread)          
             readline(molread)          
             line  = readline(molread)          
-            sline = split(line)
-            natom = parse(Int32,sline[1]) 
-            nconn = parse(Int32,sline[2])
+            #sline = split(line)
+            #println("line :",line)
+            natom = parse(Int32,strip(line[1:3])) 
+            nconn = parse(Int32,strip(line[4:6]))
             for i in 1:natom
                 line=readline(molread)
                 sline=split(line)
@@ -241,6 +242,8 @@ function readsuits(suit)
         println(fraglist[i])
         #println(" ==== 2 ==== ")
     end
+
+    #exit()
 
 end 
 

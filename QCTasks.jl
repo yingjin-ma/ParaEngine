@@ -101,7 +101,7 @@ end
                 if occursin("For further details see manual",abnormal)
                     break
                 end 
-            end if
+            end 
 
         end
     end
@@ -136,7 +136,7 @@ function nwchemtask(task,frag,atoms,par)
         end
     end
 
-    run(`sed -i "6r $inXYZ" $infile`)
+    run(`sed -i "7r $inXYZ" $infile`)
 
     if frag.name!="unnamed"
         task.infile  = "$(name).nw"
@@ -186,7 +186,7 @@ function gentask()
 
 end 
 
-function distributingtask()
+function distributingtask(NSLURM)
 
     nnodes = -1
     iflag  = -1
@@ -240,14 +240,23 @@ function distributingtask()
         end
     else
         println("Assigning tasks with --> Default <-- ")       
+
+        ndiv = total_frags/NSLURM
+        nmod = mod(total_frags,NSLURM)
+ 
         LBmat=[]
-        LBvec=[] 
-        for i in 1:total_frags
-            push!(LBvec,i)
+        for i in 1:NSLURM
+            LBvec=[]
+            for j in 0:ndiv
+                if j*NSLURM+i <= total_frags
+                    push!(LBvec,Int(j*NSLURM+i))
+                end 
+            end                 
+            push!(LBmat,LBvec)
         end 
-        push!(LBmat,LBvec)
         push!(LBcube,LBmat) 
-    end  
+    end 
+    println() 
     println("")
     flush(stdout)
 
@@ -272,8 +281,8 @@ function distributingtask()
         end
     end 
 
-    #println(tasklist)
-    #stop()
+    println(LBcube)
+    #exit()
 
 end
 
@@ -364,7 +373,7 @@ end
             RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $(tlist[itask].infile) $(tlist[itask].outfile) `
 
             try  
-                run(`mv $(workdir)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
+                run(`mv $(hostlock0)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
                 global IFDONE = false                
             catch err
                 global IFDONE = true 
@@ -373,7 +382,7 @@ end
             if IFDONE
                 println("JOB $(tlist[itask].infile) already done in another Worker")                
             else 
-                run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
+                run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true,ignorestatus=true))
             end 
             flush(stdout)
             flush(stderr)
@@ -552,8 +561,13 @@ end
                 hostfile = " "
                 println(iolock, hname)
                 push!(lockvec,hname)
-                close(iolock)
-                println("iolock was closed in single node case")
+                try
+                    close(iolock)
+                    println("iolock was closed in single node case")
+                catch err
+                    println("iolock was closed in single node (previously by break?)")
+                end
+                sleep(0.1) 
                 flush(stdout)
             end
 
@@ -564,7 +578,7 @@ end
             RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $(tlist[itask].infile) $(tlist[itask].outfile) `
 
             try
-                run(`mv $(workdir)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
+                run(`mv $(hostlock0)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
                 global IFDONE = false
             catch err
                 global IFDONE = true
@@ -573,7 +587,7 @@ end
             if IFDONE
                 println("JOB $(tlist[itask].infile) already done in another Worker")                
             else
-                run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true))
+                run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true,ignorestatus=true))
             end
             flush(stdout)
             flush(stderr)
@@ -614,13 +628,9 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
             println("    NSLURM_NODES : ", NNSLURM, "        NPRE_NODES : ", i)  
             println("  ------------                ------------           ")  
 
-            if LBfile != ""
-                for j in 1:length(LBcube[i])
-                    println("  Tasks on the node-",j," :  ", LBcube[i][j])
-                end  
-            else
-                println("  Tasks on ALL-nodes :  ", LBcube[1][1])
-            end
+            for j in 1:length(LBcube[i])
+                println("  Tasks on the node-",j," :  ", LBcube[i][j])
+            end  
 
             if length(MNcube) > 0
                 println("  ------------                ------------           ")  
@@ -667,17 +677,20 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
           inode = i
         end
         
+        LBtmp = [] 
+
         if LBfile != ""
             LBtmp=LBcube[NNSLURM][i]
         else
-            LBtmp=LBcube[1][1]
-        end   
- 
+            LBtmp=LBcube[1][i]
+        end
+
         if ISPAWN == 1 
             push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist,inode,SNODES))
         elseif ISPAWN == 2
             push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBtmp,tasklist,inode,SNODES))
-        end 
+        end
+ 
     end 
 
     for i in 1:NNSLURM

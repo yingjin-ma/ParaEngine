@@ -24,9 +24,6 @@ slurminfo()
 
 readinp("input")
 
-gentask()
-distributingtask()
-
 try
     global NN = parse(Int, ENV["SLURM_NNODES"])
     global IFSLURM = true 
@@ -36,6 +33,9 @@ catch err
     global IFSLURM = false
 end
 flush(stdout)
+
+gentask()
+distributingtask(NN)
 
 ISPAWN = 1
 println("NN : ",NN, " IFSLURM : ",IFSLURM," ISPAWN : ",ISPAWN, " (1:@spawn 2:@spawnat)")

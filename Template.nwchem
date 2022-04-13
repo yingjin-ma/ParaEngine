@@ -1,3 +1,4 @@
+ memory total 100 gb
  start LoadBalanceApplication
  title FRAG-i
  
@@ -13,6 +14,8 @@
  dft  
    dftxc 
  end 
+
+ set grid:eaf_size_in_dbl 50000000
 
  task dft
  
