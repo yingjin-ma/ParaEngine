@@ -29,7 +29,7 @@ try
     global IFSLURM = true 
 catch err
     println("ENV(SLURM_NNODES) is not found, use only 1 local process")
-    global NN = 1 
+    global NN = 20 
     global IFSLURM = false
 end
 flush(stdout)

@@ -249,6 +249,8 @@ end
 
 function readinp(infile)
 
+    global overload = 0.0
+
     open(infile,"r") do stream
         for line in eachline(stream)
             sline=split(line)
@@ -277,6 +279,14 @@ function readinp(infile)
                 end
                 if uppercase(sline[1]) == "LOADBALANCE"
                     global LBfile  = sline[2] 
+                end
+                if uppercase(sline[1]) == "OVERLOAD"
+                    global overload = parse(Float64,sline[2])
+                    if length(sline) == 3 
+                        global nrepeat = parse(Int32,sline[3])
+                    else 
+                        global nrepeat = -1
+                    end 
                 end
                 if uppercase(sline[1]) == "WORKDIR"
                     global workdir = sline[2] 

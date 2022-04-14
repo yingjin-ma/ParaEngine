@@ -243,7 +243,29 @@ function distributingtask(NSLURM)
 
         ndiv = total_frags/NSLURM
         nmod = mod(total_frags,NSLURM)
- 
+
+        # locate the overload tasks  1/2
+        OLvec=[]
+        for i in 1:NSLURM
+            for j in 0:ndiv
+                if j*NSLURM+i > total_frags*(1.0-overload)
+                    if j*NSLURM+i <= total_frags
+                        push!(OLvec,Int(j*NSLURM+i))
+                    end  
+                end 
+            end                 
+        end
+
+        if nrepeat > 0  
+           nredo = NSLURM/nrepeat 
+           neffe = floor(Int, total_frags*overload/nredo + 1)
+           #nintv = floor(Int, length(OLvec)/neffe)
+           #println("nredo : ", nredo, " neffe : ",neffe," nintv ",nintv) 
+           #println("OLvec: ",OLvec)
+        end 
+
+        # assign all the tasks      2/2
+        iitv=0
         LBmat=[]
         for i in 1:NSLURM
             LBvec=[]
@@ -251,10 +273,31 @@ function distributingtask(NSLURM)
                 if j*NSLURM+i <= total_frags
                     push!(LBvec,Int(j*NSLURM+i))
                 end 
-            end                 
-            push!(LBmat,LBvec)
+            end                
+            if nrepeat > 0
+                i1= iitv + 1
+                i2= iitv + neffe
+                #println("OLvec ", i1, " ", i2, " ")                 
+                if length(OLvec)-i2 <= 0
+                    ix = i2 - length(OLvec)
+                    LBvec=vcat(LBvec,OLvec[i1:i2-ix])
+                    if ix != 0
+                        LBvec=vcat(LBvec,OLvec[1:ix])
+                    end 
+                    iitv = ix
+                else
+                    LBvec=vcat(LBvec,OLvec[i1:i2])
+                end   
+                #println(LBvec)
+                push!(LBmat,LBvec)
+                iitv = iitv + neffe
+            else 
+                LBvec=vcat(LBvec,OLvec)
+                push!(LBmat,LBvec)
+            end 
         end 
-        push!(LBcube,LBmat) 
+        push!(LBcube,LBmat)
+ 
     end 
     println() 
     println("")
