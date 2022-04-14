@@ -22,5 +22,5 @@ date1=$(date +%Y%m%d%H%M%S)
 
 scontrol show hostname > nodelist
 
-julia --machine-file=nodelist ParaFrags.jl > out-$date1
+julia --machine-file=nodelist ParaEngine.jl > out-$date1
 

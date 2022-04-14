@@ -1,4 +1,4 @@
-# Self-written ParaFrags (Julia) version
+# Self-written ParaEngine/ParaFrags (Julia) version
 # 2021.3.14  Initial REM-MPI version refering Xpol, but it was totally rewritten (due to X-pol is not easy to debug for us)
 #            REM-MPI was also used as ParaFrags as the computating driver for GridMol2.0
 # 2021.11.28 Testing version use the Fortran + Shell style
@@ -6,12 +6,14 @@
 #            A lot of works need to do ...  
 # 2022.3.14  Both dynamic and static load-balancing ways can work
 # 2022.3.17  Multi-nodes case can work
+# 2022.4.12  Molecular suits can work
+# 2022.4.14  Rename as ParaEngine, because not only fragments can be calculated
 
 
 using Distributed
 using BenchmarkTools
 
-include("PrintParaFrags.jl")
+include("PrintParaEngine.jl")
 include("GlobalParameters.jl")
 include("ReadInputs.jl")
 include("QCTasks.jl")

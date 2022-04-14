@@ -2,8 +2,8 @@
 !================ Testing input =================
   task             DFT              FRAG
   engine           CPU              NWChem
-  workdir          ./Part1-100nodes-Overload-0.2-5
-  suit             ../Arxiv1911.05569v1_sdfs_H_Part1
-  overload         0.2         2
+  workdir          ./Part-250nodes-Overload-0.25-5
+  suit             ../Arxiv1911.05569v1_sdfs_H
+  overload         0.25         5
 !================================================
 
