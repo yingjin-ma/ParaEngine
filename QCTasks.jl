@@ -125,7 +125,8 @@ function nwchemtask(task,frag,atoms,par)
 
     open(infile,"w") do nwinp
         txt = read("Template.nwchem",String)
-        txt = replace(txt,"FRAG-i" => "Frag-$(fragidx)","X-library-basis" => "* library 6-31g","dftxc" => "xc m06-2x", "CHARGE" => "charge $(frag.icharge)" )
+        # txt = replace(txt,"FRAG-i" => "Frag-$(fragidx)","X-library-basis" => "* library 6-31g","dftxc" => "xc m06-2x", "CHARGE" => "charge $(frag.icharge)" )
+        txt = replace(txt,"FRAG-i" => "Frag-$(fragidx)","X-library-basis" => "* library 6-31g", "CHARGE" => "charge $(frag.icharge)" )
         print(nwinp,txt)
     end  
 

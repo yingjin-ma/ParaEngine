@@ -11,12 +11,9 @@
    X-library-basis
  end
 
- dft  
-   dftxc 
- end 
-
  set grid:eaf_size_in_dbl 50000000
 
- task dft
- 
+ task dft optimize
+ task tddft energy 
+
 

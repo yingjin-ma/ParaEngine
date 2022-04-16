@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -J Julia_TEST
-#SBATCH -N 250
+#SBATCH -N 1
 #SBATCH --ntasks-per-node=5
 #SBATCH --gres=dcu:4
 #SBATCH --mem=100G
