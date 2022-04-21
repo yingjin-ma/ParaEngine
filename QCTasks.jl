@@ -125,7 +125,8 @@ function nwchemtask(task,frag,atoms,par)
 
     open(infile,"w") do nwinp
         txt = read("Template.nwchem",String)
-        txt = replace(txt,"FRAG-i" => "Frag-$(fragidx)","X-library-basis" => "* library 6-31g","dftxc" => "xc m06-2x", "CHARGE" => "charge $(frag.icharge)" )
+    #    # txt = replace(txt,"FRAG-i" => "Frag-$(fragidx)","X-library-basis" => "* library 6-31g","dftxc" => "xc m06-2x", "CHARGE" => "charge $(frag.icharge)" )
+        txt = replace(txt,"SubTask-i" => "SubTask-$(fragidx)", "CHARGE" => "charge $(frag.icharge)" )
         print(nwinp,txt)
     end  
 
@@ -137,6 +138,15 @@ function nwchemtask(task,frag,atoms,par)
     end
 
     run(`sed -i "7r $inXYZ" $infile`)
+
+    open(infile,"a") do nwinp
+        for i in 1:length(QCpara)
+            println(nwinp,QCpara[i])
+        end 
+    end
+   
+    #println(QCpara)
+    #exit()
 
     if frag.name!="unnamed"
         task.infile  = "$(name).nw"

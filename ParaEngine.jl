@@ -17,6 +17,7 @@ include("PrintParaEngine.jl")
 include("GlobalParameters.jl")
 include("ReadInputs.jl")
 include("QCTasks.jl")
+include("Monitor.jl")
 
 # launch worker processes
 addprocs(0)
@@ -31,7 +32,7 @@ try
     global IFSLURM = true 
 catch err
     println("ENV(SLURM_NNODES) is not found, use only 1 local process")
-    global NN = 20 
+    global NN = 10 
     global IFSLURM = false
 end
 flush(stdout)
@@ -43,7 +44,18 @@ ISPAWN = 1
 println("NN : ",NN, " IFSLURM : ",IFSLURM," ISPAWN : ",ISPAWN, " (1:@spawn 2:@spawnat)")
 flush(stdout)
 
+println(" workdir : ", workdir)
+if isfile(workdir)
+    run(`rm $(workdir)"/hostlock"`)
+end 
+
+# Monitor the states in each nodes
+police = @spawnat 2 nodes_monitor(workdir,"hostlock")
+@async fetch(police)
+
 runtask(NN,IFSLURM,ISPAWN)
+
+println("After nodes_monitor")
 
 finishinfo()
 

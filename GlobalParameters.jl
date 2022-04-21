@@ -5,9 +5,11 @@ pdbfile  = ""
 LBfile   = ""
 LBcube   = []
 MNcube   = []
+QCpara   = []
 @everywhere workdir  = "./workdir"
 @everywhere IOrecord = ""
 @everywhere IFDONE   = false
+
 
 mutable struct ATOMS
       idx::Int
