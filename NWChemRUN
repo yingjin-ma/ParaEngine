@@ -5,3 +5,4 @@ module load NWChem/7.0.2
 
 mpirun -np $1 $2 $3 /public/home/mayj/Quantum_Soft/nwchem-2022Apr/bin/LINUX64/nwchem_numa $4 > $5
 
+

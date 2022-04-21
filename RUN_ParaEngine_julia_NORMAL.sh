@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH -J Julia_TEST
-#SBATCH -N 1
+#SBATCH -J ParaEngine
+#SBATCH -N 100
 #SBATCH --ntasks-per-node=5
 #SBATCH --gres=dcu:4
 #SBATCH --mem=100G
@@ -13,9 +13,8 @@
 
 module  use /public/home/mayj/Quantum_modulefiles
 module load apps/julia/1.7.2
-
 module load IntelMKL/2021.1.1
-module load apps/nwchem-DCU/6.8.1/hpcx-2.7.4-intel2017
+module load NWChem/7.0.2
 
 date1=$(date +%Y%m%d%H%M%S)
 #echo $date1

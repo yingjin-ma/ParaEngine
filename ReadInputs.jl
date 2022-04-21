@@ -250,9 +250,11 @@ end
 function readinp(infile)
 
     global overload = 0.0
+    global nrepeat  = -1
 
     open(infile,"r") do stream
-        for line in eachline(stream)
+        while !eof(stream) 
+            line=readline(stream)
             sline=split(line)
             ntmp=length(sline) 
             if ntmp > 0 
@@ -268,9 +270,11 @@ function readinp(infile)
                 if uppercase(sline[1]) == "ENGINE"
                     if uppercase(sline[2]) == "NWCHEM"
                         global qcdriver = "NWCHEM"
-                    end  
-                    if uppercase(sline[3]) == "NWCHEM"
-                        global qcdriver = "NWCHEM"
+                    elseif uppercase(sline[2]) == "GAMESS"
+                        global qcdriver = "GAMESS"
+                    else
+                        println("EXIT()")
+                        exit()
                     end  
                 end
                 if uppercase(sline[1]) == "COORD"
@@ -295,12 +299,34 @@ function readinp(infile)
                     global targetsuit = sline[2] 
                     readsuits(targetsuit)
                 end
+
+                if sline[1] == "!>"
+                    if uppercase(sline[2]) == "NWCHEM"
+                        ctmp=""
+                        while ctmp != "!>"
+                            line=readline(stream)
+                            sline=split(line)
+                            ntmp=length(sline) 
+                            if ntmp > 0
+                                push!(QCpara,line)
+                                ctmp=sline[1]
+                            else
+                                push!(QCpara," ")
+                            end  
+                        end
+                        QCpara[length(QCpara)]=" "
+                    end 
+                end
+ 
             end 
         end
     end
     #println("runtype,runtype2,qcdriver,pdbfile,LBfile")
     #println(runtype,runtype2,qcdriver,pdbfile,LBfile)
     #return runtype,runtype2,qcdriver,pdbfile,LBfile
+
+    #println(QCpara)
+    #exit() 
 
 end 
 
