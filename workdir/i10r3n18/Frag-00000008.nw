@@ -1,0 +1,26 @@
+ start LoadBalanceApplication
+ title Frag-00000008
+ 
+ geometry units an
+ C   -1.565 -2.766 3.391
+ O   -1.397 -4.841 2.318
+ O   -2.712 -3.102 3.757
+ O   -0.841 -3.665 2.625
+ C   -0.988 -1.463 3.75
+ H   -0.704 -5.33 1.773
+ H   0.012 -1.656 4.232
+ H   -1.652 -0.932 4.45
+ H   -0.905 -0.861 2.835
+ end
+
+ basis
+   * library 6-31g
+ end
+
+ dft  
+   xc m06-2x 
+ end 
+
+ task dft
+ 
+
