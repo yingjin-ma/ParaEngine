@@ -9,7 +9,9 @@ QCpara   = []
 @everywhere workdir  = "./workdir"
 @everywhere IOrecord = ""
 @everywhere IFDONE   = false
-
+@everywhere overload = 0.0
+@everywhere nrepeat  = -1
+@everywhere iffifo = true
 
 mutable struct ATOMS
       idx::Int

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH -J ParaEngine
-#SBATCH -N 100
+#SBATCH -J Julia_TEST
+#SBATCH -N 5
 #SBATCH --ntasks-per-node=5
 #SBATCH --gres=dcu:4
 #SBATCH --mem=100G
@@ -21,5 +21,5 @@ date1=$(date +%Y%m%d%H%M%S)
 
 scontrol show hostname > nodelist
 
-julia --machine-file=nodelist ParaEngine.jl > out-$date1
+julia --machine-file=nodelist ParaEngine.jl input > out-$date1
 

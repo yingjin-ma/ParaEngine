@@ -19,7 +19,7 @@ end
     r=""
     open(file) do io
         seekend(io)       
-        skip(io, -512)  
+        skip(io, -1024)  
         r=read(io,String)
         return r
     end
@@ -92,22 +92,24 @@ end
             if occursin("Total times  cpu:",tailout)
                 break
             end
- 
-            if mod(ii,5) == 0
-                println("")
-                abnormal = read_last_abnormal(out)
-                println(" abnormal check :", abnormal)
-                println("")
-                if occursin("For further details see manual",abnormal)
-                    break
-                end 
-            end 
 
+#            if mod(ii,5) == 0
+            println("")
+            abnormal = read_last_abnormal(out)
+            println(" abnormal check :", abnormal)
+            println("")
+            if occursin("For further details see manual",abnormal)
+                break
+            end 
+            if occursin("Total times  cpu:",abnormal)
+                break
+            end 
+#            end
         end
     end
-    flush(stdout) 
-
+    flush(stdout)
 end
+
 
 function nwchemtask(task,frag,atoms,par)
 
@@ -201,13 +203,15 @@ function distributingtask(NSLURM)
     nnodes = -1
     iflag  = -1
     icount =  0 
-
+    global pos_node=[]
     println("")
     println("Distributing the QC tasks ... ")
     if LBfile != ""        
         print("Assigning tasks with --> ")
         print(LBfile)
         println(" <-- ")
+        # locate the overload tasks  1/2
+        OLvec=[]
         # Read in the loadbalance file 
         open(LBfile,"r") do LBread
             while !eof(LBread)
@@ -216,7 +220,8 @@ function distributingtask(NSLURM)
                 ntmp=length(sline)
                 if ntmp > 0                   
                     if uppercase(sline[1]) == "NODES"
-                        nnodes = parse(Int32,sline[2])
+                        nnodes = parse(Int32,sline[2])                        
+                        push!(pos_node,nnodes)
                         LBmat=[] 
                         for i in 1:nnodes
                             line=readline(LBread)
@@ -225,6 +230,11 @@ function distributingtask(NSLURM)
                             LBvec=[]
                             for i in 1:ntmp
                                 push!(LBvec,parse(Int32,sline[i]))
+                                # If overload
+                                if i>(1.0-overload)*ntmp && nnodes==NSLURM
+                                    #println(" i , ntmp", i, ntmp)
+                                    push!(OLvec,parse(Int32,sline[i]))
+                                end   
                             end 
                             push!(LBmat,LBvec)
                         end  
@@ -247,6 +257,53 @@ function distributingtask(NSLURM)
                     end 
                 end
             end
+            #println("OLvec : ",OLvec)
+            if nrepeat > 0
+                OLvec2=[]
+                for i in 1:length(OLvec)
+                    if OLvec[i]>0
+                         push!(OLvec2,OLvec[i])
+                    end
+                end
+                nOLvec2=length(OLvec2)
+
+                nredo = NSLURM/nrepeat
+                neffe = floor(Int, nOLvec2/nredo + 1)
+                println("nOLvec2 : ", nOLvec2 ,"OLvec2: ",OLvec2)
+
+                div = nOLvec2/NSLURM
+                nmod = mod(nOLvec2,NSLURM)
+
+                for i in 1:length(pos_node)
+                    if pos_node[i] == NSLURM
+                        global ipos = i
+                    end
+                end
+
+                iitv=0
+                for i in 1:NSLURM
+                    i1= iitv + 1
+                    i2= iitv + neffe  
+                    if length(OLvec2)-i2 <= 0
+                        ix = i2 - length(OLvec2)
+                        #println("OLvec2[i1:i2-ix] ",OLvec2[i1:i2-ix])
+                        LBcube[ipos][i]=vcat(LBcube[ipos][i],OLvec2[i1:i2-ix])
+                        if ix != 0 
+                            #println("OLvec2[1:ix] ",OLvec2[1:ix])
+                            LBcube[ipos][i]=vcat(LBcube[ipos][i],OLvec2[1:ix])
+                        end 
+                        iitv = ix
+                    else
+                        #println("OLvec2[i1:i2] ",OLvec2[i1:i2])
+                        LBcube[ipos][i]=vcat(LBcube[ipos][i],OLvec2[i1:i2])
+                    end
+                    #println(i," -OLvec2 ", i1, " ", i2, " ")
+                    iitv = iitv + neffe 
+                    println("LBcube[",ipos,"][",i,"] : ",LBcube[ipos][i])
+                end 
+
+            end
+            #exit()
         end
     else
         println("Assigning tasks with --> Default <-- ")       
@@ -360,7 +417,7 @@ end
             if isfile(hostlock)
                 ilock = -1
                 while ilock != 1
-                    lockcheck=open(hostlock,"r")
+                    #lockcheck=open(hostlock,"r")
                     lines=readlines(hostlock)
                     if length(lines) > 0
                         for line in lines
@@ -374,7 +431,7 @@ end
                                 ilock = 1
                             end
                         end
-                        close(lockcheck)
+                    #    close(lockcheck)
                     else
                         ilock = 1
                         println(" .. no hostlock, goon running ")
@@ -455,34 +512,59 @@ end
     flush(stdout)
 end
 
-@everywhere function NWChemRUN_SPAWN(tvec,tlist,id,snodes)
+@everywhere function NWChemRUN_SPAWN(tvec,tlist,id,snodes,iffifo)
  
-    println("taskvec  : ",tvec) 
-    println("tasklist : ",tlist) 
+    #println("taskvec  : ",tvec) 
+    #println("tasklist : ",tlist) 
+ 
+    tbreak=id
+    while tbreak > 1
+       tbreak = tbreak/10
+    end
+    sleep(tbreak)
+
+    println(" iffifo : ", iffifo)
+    flush(stdout)
+    #exit(0)
+  
 
     for itask in tvec
         if itask != 0
             hname = gethostname() 
-            print("id",id,gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
+            print("id ",id," ",gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
 
             hostlock0=tlist[itask].folder
             hostlock = string(hostlock0,"/","hostlock")
-            tlist[itask].folder=string(tlist[itask].folder,"/",gethostname())
-            println(" ",tlist[itask].folder) 
-            if !isdir(tlist[itask].folder)
-                mkpath(tlist[itask].folder)
+            #tlist[itask].folder=string(tlist[itask].folder,"/",gethostname())
+            folder = string(tlist[itask].folder,"/",gethostname())
+            println(" ",folder) 
+            if !isdir(folder)
+                mkpath(folder)
             end 
 
             if isfile(hostlock)
                 ilock = -1 
                 while ilock != 1 
-                    lockcheck=open(hostlock,"r")
-                    lines=readlines(hostlock)
-                    nlines=length(lines)
-                    if length(lines) > 0
+                    #lockcheck=open(hostlock,"r")                
+
+                    global istamp = -1 
+                    while istamp != 1
+                        try
+                            global lineslock=readlines(hostlock)
+                            istamp = 1
+                        catch err
+                            sleep(0.1)
+                            println("==> Re-try the hostlock read")
+                        end
+                    end
+
+                    #lines=readlines(hostlock)
+                    nlines=length(lineslock)
+
+                    if length(lineslock) > 0
                         EXnodes = Array{String}(undef, nlines)
                         i=0
-                        for line in lines
+                        for line in lineslock
                             i=i+1
                             EXnodes[i] = line
                         end
@@ -490,7 +572,7 @@ end
                         if sizeof(ipos)>0 
                             sleep(5)
                             println(" .. waiting for the jobs in this host (",hname,") ")               
-                        #elseif length(snodes)-length(lines) < tlist[itask].nnodes 
+                        #elseif length(snodes)-length(lineslock) < tlist[itask].nnodes 
                         #    sleep(5)
                         #    println(" .. waiting for the jobs out of host (",hname,") ")               
                         else
@@ -501,7 +583,7 @@ end
                         ilock = 1
                         println(" .. no host is locked, goon running ")
                     end  
-                    close(lockcheck) 
+                    #close(lockcheck) 
                 end 
             else
                 println(" .. no hostlock, goon running ")
@@ -523,16 +605,27 @@ end
                 hostflag = "-hostfile"
                 hostfile = "nodes$(id)"
 
-                ftmp = string(tlist[itask].folder,"/",hostfile)
+                ftmp = string(folder,"/",hostfile)
                 io=open(ftmp,"w")
                 println(io, hname," slots=5")
 
                 ihfile = -1
                 while ihfile != 1
                     hlockid=string(hostlock,"$(id)")
-                    run(`cp $(hostlock) $(hlockid)`)                   
-                    sleep(0.01) 
-                    lockcheck=open(hlockid,"r")
+
+                    global idlock = -1
+                    while idlock != 1                                         
+                       try 
+                          run(`cp $(hostlock) $(hlockid)`)                   
+                          sleep(0.01) 
+                          idlock = 1
+                       catch err
+                          sleep(0.1)
+                          println("==> Re-try the hostlock read and cp as lockid")
+                       end
+                    end
+                   
+                    #lockcheck=open(hlockid,"r")
                     lines=readlines(hlockid)
                     nlines=length(lines) 
                     if nlines > 0
@@ -606,7 +699,7 @@ end
                         flush(stdout)
 
                     end
-                    close(lockcheck) 
+                    #close(lockcheck) 
                 end
                 close(io)
             else        
@@ -624,28 +717,51 @@ end
                 flush(stdout)
             end
 
+            #supplement = filter!(ss->occursin(r"\.nw", ss),readdir(hostlock0))
+            #println("000 hostlock0 : ", hostlock0, " 000 supplement : ",supplement)
 
             println("hostflag : ", hostflag, " hostfile : ", hostfile)
-            flush(stdout)
-
-            RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $(tlist[itask].infile) $(tlist[itask].outfile) `
+            flush(stdout)              
 
             try
-                run(`mv $(hostlock0)"/"$(tlist[itask].infile)  $(tlist[itask].folder)`)
+                run(`mv $(hostlock0)"/"$(tlist[itask].infile)  $(folder)`)
                 global IFDONE = false
+                global infile = tlist[itask].infile
+                global outfile = tlist[itask].outfile
             catch err
                 global IFDONE = true
+                global infile = tlist[itask].infile
+                global outfile = tlist[itask].outfile
+                if iffifo 
+                   #println("when the fifo is activated, NWChem (.nw) for testing ")
+                   supplement = filter!(ss->occursin(r"\.nw", ss),readdir(hostlock0)) 
+                   println("hostlock0 : ", hostlock0, "  supplement : ",supplement) 
+                   if length(supplement) > 0
+                      try
+                         run(`mv $(hostlock0)"/"$(supplement[1])  $(folder)`)
+                         global IFDONE = false
+                         global infile  = supplement[1]
+                         global outfile = string(splitext(infile)[1],".out")
+                         println("In FIFO, infile : ", infile, " outfile : ", outfile)
+                      catch err
+                         println("Conflicted by other worker")                         
+                      end
+                   end  
+                end  
             end
 
+            RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $infile $outfile `
+
             if IFDONE
-                println("JOB $(tlist[itask].infile) already done in another Worker")                
+                println("JOB $(infile) already done in another Worker")                
             else
-                run(Cmd(RUNXX,dir=tlist[itask].folder,detach=true,ignorestatus=true))
+                run(Cmd(RUNXX,dir=folder,detach=true,ignorestatus=true))
             end
             flush(stdout)
             flush(stderr)
 
-            ccheck=string(tlist[itask].folder,"/",tlist[itask].outfile)
+            #ccheck=string(folder,"/",tlist[itask].outfile)
+            ccheck=string(folder,"/",outfile)
             rdlast=@spawnat id check_last_NWChem(ccheck,IOrecord,IFDONE)
             fetch(rdlast)
 
@@ -721,6 +837,17 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
     println("")
     flush(stdout)
 
+    #println("LBcube : ",LBcube)
+    #println("  ")
+    println("pos_node : ", pos_node)
+    println("  ")
+
+    for i in 1:length(pos_node)
+        if pos_node[i] == NNSLURM
+            global ipos = i
+        end 
+    end  
+
     run=[]
     for i in 1:NNSLURM
         sleep(0.1)
@@ -733,13 +860,14 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
         LBtmp = [] 
 
         if LBfile != ""
-            LBtmp=LBcube[NNSLURM][i]
+            println(" LBcube[",ipos,"][",i,"] : ",LBcube[ipos][i])
+            LBtmp=LBcube[ipos][i]
         else
             LBtmp=LBcube[1][i]
         end
 
         if ISPAWN == 1 
-            push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist,inode,SNODES))
+            push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist,inode,SNODES,iffifo))
         elseif ISPAWN == 2
             push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBtmp,tasklist,inode,SNODES))
         end

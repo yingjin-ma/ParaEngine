@@ -40,7 +40,7 @@ function readpdbfile(inpdb)
             sline=split(line)
             ntmp=length(sline)
             if ntmp > 0
-                if uppercase(sline[1]) == "HETATM" || uppercase(sline[1]) == "ATOM"
+                if uppercase(sline[1]) == "HETATM" || uppercase(sline[1]) == "ATOM" || uppercase(line[1:6]) == "HETATM" || uppercase(line[1:4]) == "ATOM"
                     icharge= 0
                     natoms = natoms+1    
                     #println(line[23:26],line[31:38],line[39:46],line[47:54]) 
@@ -249,8 +249,7 @@ end
 
 function readinp(infile)
 
-    global overload = 0.0
-    global nrepeat  = -1
+    global iffifo = true
 
     open(infile,"r") do stream
         while !eof(stream) 
@@ -286,11 +285,19 @@ function readinp(infile)
                 end
                 if uppercase(sline[1]) == "OVERLOAD"
                     global overload = parse(Float64,sline[2])
-                    if length(sline) == 3 
+                    if length(sline) >= 3 
                         global nrepeat = parse(Int32,sline[3])
                     else 
                         global nrepeat = -1
                     end 
+                    if length(sline) >= 4 
+                        fifo = uppercase(sline[4])
+                        if fifo == "FIFO"
+                           global iffifo = true
+                        else
+                           global iffifo = false
+                        end 
+                    end
                 end
                 if uppercase(sline[1]) == "WORKDIR"
                     global workdir = sline[2] 
@@ -321,6 +328,8 @@ function readinp(infile)
             end 
         end
     end
+
+
     #println("runtype,runtype2,qcdriver,pdbfile,LBfile")
     #println(runtype,runtype2,qcdriver,pdbfile,LBfile)
     #return runtype,runtype2,qcdriver,pdbfile,LBfile

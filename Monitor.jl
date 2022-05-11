@@ -12,6 +12,7 @@
         mkdir(monidir)
     end   
 
+    idone = 0
     while true
         # Sample interval is 60s 
         tint=60
@@ -25,7 +26,18 @@
             LKfile = string(monidir,"/",LKfile)
 
             println("LKfile ", LKfile)
-            run(`cp $(lockfile) $(LKfile)`) 
+
+            global ifcp = -1
+            while ifcp !=1
+                try 
+                    run(`cp $(lockfile) $(LKfile)`) 
+                    ifcp = 1 
+                    println("success of sync of LKfile") 
+                catch err
+                    sleep(0.1) 
+                    println("extra 0.1s for waiting sync of LKfile") 
+                end  
+            end  
 
             nlines = countlines(LKfile)
 
@@ -35,7 +47,10 @@
             println("  ")
 
             if nlines == 0 
-                break
+                idone = idone + 1  
+                if idone == 5
+                    break
+                end 
             end 
  
             inum = inum + 1

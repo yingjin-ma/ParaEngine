@@ -25,7 +25,7 @@ addprocs(0)
 startinfo()
 slurminfo()
 
-readinp("input")
+readinp(ARGS[1])
 
 try
     global NN = parse(Int, ENV["SLURM_NNODES"])
