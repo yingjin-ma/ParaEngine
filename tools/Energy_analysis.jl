@@ -1,7 +1,22 @@
+mutable struct FRAGS
+      idx::Int
+     name::String
+   energy::Float64
+  residue::String
+end
 
-target=ARGS[1]
-outlog=ARGS[2]
-nnodes=parse(Int64,ARGS[3])
+# e.g.
+#       julia Energy_analysis.jl ../ACE2_Ab-Omicron_Q493R_0_0-8.0A-MFCC.info ../COVID-10nodes-TEST-DFT-TRY4-S  
+
+info=ARGS[1]
+target=ARGS[2]
+
+if !isfile(info)
+    println("The information file $(info) is not exist")
+    exit("Stopped. Reason: $(info) is not exist.")
+else
+    println("Information file : ", target )
+end
 
 if !isdir(target)
     println("The target suit $(target) is not exist")
@@ -15,56 +30,158 @@ println("")
 println(filelist)
 println("")
 
-times=[]
-percentage=0.0
-open(outlog,"w") do wlog
-    neff = 0
-    i = 0
-    for ifile in filelist
-        i      = i + 1 
-        ifile  = string(target,"/",ifile)
-        println("ifile : ",ifile)
-        nlines = countlines(ifile)
-        neff   = neff + nlines 
-        println(wlog,i," ",nlines)
-        push!(times,nlines)
-    end
-    promote(i,nnodes,neff)
-    nidl = i * nnodes
-    percentage = neff / nidl
-    println(wlog,"")
-    println(wlog,"The effective   mins (active) are       : ", neff)
-    println(wlog,"The ideal nodes mins (active) should be : ", nidl)
-    println(wlog,"The utilization percentage for the nodes in life cycle : ", percentage )
-    println(wlog,"")
-end 
+global fraglist=[]
+#icount = 0
+for ifile in filelist
+    ifolder  = string(target,"/",ifile)
+    println("ifolder : ",ifolder)
+    if isdir(ifolder)
+        dirlist = readdir(ifolder)                     
+        #println("dirlist : ",dirlist)
+        for id in dirlist
+            sline=split(id,".")
+            #println("id(00) : ", id) 
+            if uppercase(sline[2])=="OUT"
+                #println(" id(11) :  ",id)
+                sline=split(split(id,".")[1],"-")
+                #global icount = icount + 1 
+                inum   = parse(Int32,sline[2])
+                energy = 0 
+                outidx = string(ifolder,"/",id)                
 
-println("times :", times)
-nt=length(times)
-for i in 1:length(times)-1
-   if times[nt-i] < times[nt-i+1]
-      times[nt-i] = times[nt-i+1]
-   end  
-end 
+                open(outidx,"r") do readlog
+                    while !eof(readlog)
+                        line=readline(readlog)
+                        sline=split(line)
+                        ntmp=length(sline)
+                        if ntmp > 4
+                            if sline[1] == "Total" && sline[2] == "DFT" && sline[3] == "energy"
+                                energy = parse(Float64,sline[5])
+                            end 
+                        end  
+                    end
+                end
 
-percentage=0.0
-outlog=string(outlog,"_correct")
-open(outlog,"w") do wlog
-    neff = 0
-    for i in 1:length(times)
-        nlines=times[i]
-        neff   = neff + nlines
-        println(wlog,i," ",nlines)
-        push!(times,nlines)
+                #println(" frag(",inum,") : ",energy)
+
+                #println(wlog,i," ",nlines)
+                #println("FRAGS ",FRAGS(inum,id,energy))
+                push!(fraglist,FRAGS(inum,id,energy,""))
+
+            end
+        end  
     end
-    promote(nt,nnodes,neff)
-    nidl = nt * nnodes
-    percentage = neff / nidl
-    println(wlog,"")
-    println(wlog,"The effective   mins (active) are       : ", neff)
-    println(wlog,"The ideal nodes mins (active) should be : ", nidl)
-    println(wlog,"The utilization percentage for the nodes in life cycle : ", percentage )
-    println(wlog,"")
+end  
+
+#outlog="tmp.log"
+#open(outlog,"w") do wlog
+#end 
+
+#println("000",fraglist)
+sort!(fraglist, by = x -> x.idx)
+#println("111",fraglist)
+
+open(info,"r") do readinfo
+    line=readline(readinfo)
+    idx = 0
+    while !eof(readinfo)
+        idx = idx + 1 
+        line=readline(readinfo)
+        sline=split(line)
+        ssline=replace(sline[10],"\""=>"",","=>"")
+        fraglist[idx].residue=ssline
+    end  
 end
+
+# For matching
+IDfrags = Array{String}(undef, length(fraglist))
+for i in 1:length(fraglist)
+    println("fraglist[",i,"] : ",fraglist[i].energy, " ",fraglist[i].name," ",fraglist[i].residue)
+    IDfrags[i] = fraglist[i].residue
+end 
+
+#println(IDfrags)
+global res=[]
+for i in 1:length(fraglist)
+    sline=split(fraglist[i].residue,"_")
+    ntmp = length(sline)
+    if ntmp == 1 
+        ssline=split(sline[1],"-") 
+        ntmp = length(ssline)
+        if ntmp > 1            
+            vec = []
+            println("Interaction between spike's residue ",sline, " and hACE")
+            for j in 1:length(fraglist)
+                if occursin(sline[1],IDfrags[j])
+                    push!(vec,j)
+                end 
+            end 
+            push!(res,vec)
+        end 
+    end 
+end
+
+println(res)
+
+Eints=[]
+for i in 1:length(res)
+    if length(res) == 1
+        println("Interaction between spike's residue (",fraglist[res[i][1]].residue, ") and hACE is ", 0.0)
+        push!(Eints,0.0)  
+    else 
+        Ex      = fraglist[res[i][1]].energy
+        Ecap    = 0.0
+        Echain  = 0.0
+        Ecapx   = 0.0
+        Echainx = 0.0
+        Eint    = 0.0
+        Ncap    = 0     # count
+        Nchain  = 0
+        Ncapx   = 0
+        Nchainx = 0
+        for j in 2:length(res[i])
+            sline = split(IDfrags[res[i][j]],"_")
+            ntmp  = length(sline) 
+            if ntmp == 2 # dimer case
+                ssline = sline[2]
+                if uppercase(ssline[1:4])=="CAPA"
+                    Ecapx   = Ecapx   + fraglist[res[i][j]].energy
+                    Ncapx   = Ncapx   + 1
+                    idxpos  = findfirst(==(ssline),IDfrags)
+                    if idxpos !=  0
+                        Ecap   = Ecap   + fraglist[idxpos].energy
+                        Ncap   = Ncap   + 1
+                    else
+                        println("No $(ssline) CAP ??? ") 
+                    end 
+                elseif uppercase(ssline[1:4])=="CHAI"
+                    Echainx = Echainx + fraglist[res[i][j]].energy 
+                    Nchainx = Nchainx + 1 
+                    idxpos  = findfirst(==(ssline),IDfrags)
+                    if idxpos !=  0
+                        Echain   = Echain   + fraglist[idxpos].energy
+                        Nchain   = Nchain   + 1
+                    else
+                        println("No $(ssline) Chain ??? ") 
+                    end 
+                end 
+            end
+        end
+
+        if Nchainx != Ncapx
+            println("The edge case, need add code to handel this !!! ")
+        else
+            E1   =  Echainx - Echain - Nchain * Ex
+            E2   =  Ecapx   - Ecap   - Ncap   * Ex
+            Eint =  E1 - E2
+        end
+
+        push!(Eints,Eint)  
+        println("Interaction between spike's residue (",fraglist[res[i][1]].residue, ") and hACE is ", Eint)
+
+    end 
+end
+
+
 
 
