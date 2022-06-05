@@ -1,4 +1,4 @@
-function getmult(frag,atoms)
+function getmult(frag,atoms,ifcs=false)
 
     elemdict=Dict( "H" => 1,
                "Li" => 3, "Be" => 4, "B" => 5, "C" => 6, "N" => 7, "O" => 8, "F" => 9,
@@ -9,19 +9,30 @@ function getmult(frag,atoms)
 
     #println(" istart, ifinish : ", istart, "  " , ifinish)
 
-    nele=0
+    nele = 0
+    imod = 0
     for i in istart:ifinish
         #println(" ELEM : ",atoms[i].elem)
         ielem = elemdict[strip(atoms[i].elem)]
         nele = nele + ielem
     end 
 
+    #println("00 : ifcs ",ifcs, " | nele, Multi, charge", nele, " ",frag.multiple, " ",frag.icharge)
+
     nele = nele - frag.icharge
     imod = mod(nele,2)
+    if ifcs  # assign closed Shell
+        if imod != 0
+            frag.icharge = frag.icharge - 1
+            nele = nele + 1      # "-" electron
+            imod = mod(nele,2)
+        end 
+    end 
 
     frag.multiple = 2 * imod +1
-
-    #println("nele, Multi", nele, frag.multiple)
+    #println("11 : nele, Multi, charge", nele, " ",frag.multiple," ", frag.icharge)
+ 
+    return frag.icharge
 
 end
 
@@ -39,11 +50,12 @@ function readpdbfile(inpdb)
         for line in eachline(stream)
             sline=split(line)
             ntmp=length(sline)
-            if ntmp > 0
-                if uppercase(sline[1]) == "HETATM" || uppercase(sline[1]) == "ATOM" || uppercase(line[1:6]) == "HETATM" || uppercase(line[1:4]) == "ATOM"
+            if ntmp > 1
+                if uppercase(line[1:6]) == "HETATM" || uppercase(line[1:4]) == "ATOM"
                     icharge= 0
                     natoms = natoms+1    
                     #println(line[23:26],line[31:38],line[39:46],line[47:54]) 
+                    #println(line)
                     ifrag = parse(Int32,line[23:26])
                        dx = parse(Float64,line[31:38])              
                        dy = parse(Float64,line[39:46])              
@@ -123,10 +135,12 @@ function readpdbfile(inpdb)
 
     println("total_frags : ",total_frags) 
     for i in 1:total_frags
-        getmult(fraglist[i],atomlist)
-        println(" ==== ")
+        fraglist[i].icharge = getmult(fraglist[i],atomlist,closedshell)
+        print(" ==  closedshell($(closedshell)) ")
         println(fraglist[i]) 
     end
+
+    #exit(0)
 
 end
 
@@ -236,11 +250,9 @@ function readsuits(suit)
 
     println("total molecules in suit : ",total_frags)
     for i in 1:total_frags
-        #println(" ==== 0 ==== ")
-        getmult(fraglist[i],atomlist)
-        #println(" ==== ")
+        fraglist[i].icharge = getmult(fraglist[i],atomlist,closedshell)
+        print(" ==  closedshell($(closedshell))  ")
         println(fraglist[i])
-        #println(" ==== 2 ==== ")
     end
 
     #exit()
@@ -250,6 +262,7 @@ end
 function readinp(infile)
 
     global iffifo = true
+    global closedshell = false
 
     open(infile,"r") do stream
         while !eof(stream) 
@@ -257,6 +270,7 @@ function readinp(infile)
             sline=split(line)
             ntmp=length(sline) 
             if ntmp > 0 
+
                 if uppercase(sline[1]) == "TASK"
 #                    println(uppercase(sline[1])) 
                     if uppercase(sline[2]) == "DFT"
@@ -265,7 +279,11 @@ function readinp(infile)
                     if uppercase(sline[3]) == "FRAG"
                         global runtype2 = "FRAG"
                     end  
+                    if uppercase(sline[3]) == "CLOSEDSHELL"
+                        global closedshell = true 
+                    end 
                 end
+
                 if uppercase(sline[1]) == "ENGINE"
                     if uppercase(sline[2]) == "NWCHEM"
                         global qcdriver = "NWCHEM"
@@ -324,17 +342,17 @@ function readinp(infile)
                         QCpara[length(QCpara)]=" "
                     end 
                 end
- 
             end 
         end
     end
 
 
-    #println("runtype,runtype2,qcdriver,pdbfile,LBfile")
-    #println(runtype,runtype2,qcdriver,pdbfile,LBfile)
+    println("runtype,runtype2,qcdriver,pdbfile,LBfile")
+    println(runtype,runtype2,qcdriver,pdbfile,LBfile)
     #return runtype,runtype2,qcdriver,pdbfile,LBfile
 
     #println(QCpara)
+    println("closedshell  ",closedshell)
     #exit() 
 
 end 

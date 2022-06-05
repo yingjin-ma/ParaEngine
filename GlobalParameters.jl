@@ -6,6 +6,8 @@ LBfile   = ""
 LBcube   = []
 MNcube   = []
 QCpara   = []
+closedshell = false
+
 @everywhere workdir  = "./workdir"
 @everywhere IOrecord = ""
 @everywhere IFDONE   = false

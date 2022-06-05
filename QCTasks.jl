@@ -110,7 +110,6 @@ end
     flush(stdout)
 end
 
-
 function nwchemtask(task,frag,atoms,par)
 
     # Generating NWChem headers
@@ -523,7 +522,7 @@ end
     end
     sleep(tbreak)
 
-    println(" iffifo : ", iffifo)
+    println(" iffifo : ", iffifo, " id : ", id)
     flush(stdout)
     #exit(0)
   
@@ -617,7 +616,6 @@ end
                     while idlock != 1                                         
                        try 
                           run(`cp $(hostlock) $(hlockid)`)                   
-                          sleep(0.01) 
                           idlock = 1
                        catch err
                           sleep(0.1)
@@ -628,6 +626,7 @@ end
                     #lockcheck=open(hlockid,"r")
                     lines=readlines(hlockid)
                     nlines=length(lines) 
+
                     if nlines > 0
                         if length(snodes)-length(lines) < tlist[itask].nnodes
                             sleep(5)
