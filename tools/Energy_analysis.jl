@@ -73,10 +73,6 @@ for ifile in filelist
     end
 end  
 
-#outlog="tmp.log"
-#open(outlog,"w") do wlog
-#end 
-
 #println("000",fraglist)
 sort!(fraglist, by = x -> x.idx)
 #println("111",fraglist)
@@ -181,6 +177,20 @@ for i in 1:length(res)
 
     end 
 end
+
+sline=split(info,"/")
+ntmp=length(sline)
+ssline=split(sline[ntmp],".")
+
+outlog=string(ssline[1],"_result.log")
+open(outlog,"w") do wlog
+    for i in 1:length(res)
+        println(wlog, i," ",fraglist[res[i][1]].residue, " ",Eints[i]," ",627.5094*Eints[i])
+    end
+    for i in 1:length(res)
+        println(wlog,"Interaction between spike's residue (",fraglist[res[i][1]].residue, ") and hACE is ", Eints[i],"A.U. equally as ",627.5094*Eints[i]," Kcal/mol")
+    end
+end 
 
 
 
