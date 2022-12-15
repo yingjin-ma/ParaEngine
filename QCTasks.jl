@@ -75,6 +75,44 @@ end
 end
 =#
 
+@everywhere function check_last_G09(out,IOrecord,IFDONE)
+
+    println(" ... ")
+    if IFDONE
+        println("  ")
+        println("IFDONE is TRUE; Skip this task ... ")
+        println("  ")
+    else
+        ii=0
+        while true
+            ii = ii + 1
+            sleep(5)
+            tailout  = read_last(out)
+            println(tailout)
+
+            if occursin("Normal termination",tailout)
+                break
+            end
+
+            println("")
+            abnormal = read_last_abnormal(out)
+            println(" abnormal check :", abnormal)
+            println("")
+            if occursin("Error termination",abnormal)
+                break
+            end
+            if occursin("Erroneous write",abnormal)
+                break
+            end
+            if occursin("Normal termination",abnormal)
+                break
+            end
+        end
+    end
+    flush(stdout)
+end
+
+
 @everywhere function check_last_NWChem(out,IOrecord,IFDONE)
 
     if IFDONE
@@ -108,6 +146,47 @@ end
         end
     end
     flush(stdout)
+end
+
+function gausstask(task,frag,atoms,par)
+
+    fragidx=lpad(frag.idx,8,"0")
+       name=frag.name
+
+    if frag.name!="unnamed"
+        infile=string(workdir,"/$(name).gjf")
+    else
+        infile=string(workdir,"/Frag-$(fragidx).gjf")
+    end
+
+    if par == "XYZ"                      # XYZ ==> GJF
+       open(infile,"w") do gauinp
+           txt = read("Template.g09",String)
+           txt = replace(txt,"MEM" => "mem=48GB", "NPROC" => "nproc=24", "TITLE"=>"$(name)","CHAR"=>"$(frag.icharge)","MULT"=>"1","####"=>lstrip(QCpara[1]))
+           print(gauinp,txt)
+       end  
+    end  
+
+    inXYZ=string(workdir,"/XYZ.tmp")    
+    open(inXYZ,"w") do xyztmp
+        for iatom in atoms
+            println(xyztmp,iatom.elem," ",iatom.coord[1]," ",iatom.coord[2]," ",iatom.coord[3])
+        end
+    end
+
+    run(`sed -i "7r $inXYZ" $infile`)
+
+
+    if frag.name!="unnamed"
+        task.infile  = "$(name).gjf"
+        task.outfile = "$(name).log"
+    else
+        task.infile  = "Frag-$(fragidx).gjf"
+        task.outfile = "Frag-$(fragidx).log"
+    end
+
+    flush(stdout)
+
 end
 
 function nwchemtask(task,frag,atoms,par)
@@ -178,6 +257,7 @@ function gentask()
 #    io=open(IOrecord,"w") 
 #    close(io)
 
+    # The qcdriver as the running engine 
     if qcdriver == "NWCHEM"
         println("Generating the NWChem tasks ... ")
         println("")        
@@ -190,6 +270,29 @@ function gentask()
             println(" ... done ")
         end  
         println("")
+    elseif qcdriver == "GAUSSIAN"
+        println("Generating the Gaussian tasks ... ")
+        println("")       
+        if runtype2 == "XYZGAU"   # XYZ ==> GJF
+            for i in 1:total_frags
+                 istart = fraglist[i].iatom
+                ifinish = fraglist[i].iatom+fraglist[i].natoms-1
+                print(" frags-",i," : atomlist ",istart,"-",ifinish)
+                push!(tasklist,TASKS(i,fraglist[i].idx,workdir,"","","Gaussian",1))
+                gausstask(tasklist[i],fraglist[i],atomlist[istart:ifinish],"XYZ")
+                println(" ... done ")
+            end
+        else                      # GJF ==> GJF
+            run(`/bin/bash -c "cp -r $(targetsuit)/*.gjf $(workdir)"`)     
+            for i in 1:total_frags
+                 istart = fraglist[i].iatom
+                ifinish = fraglist[i].iatom+fraglist[i].natoms-1
+                print(" frags-",i," : atomlist ",istart,"-",ifinish)
+                push!(tasklist,TASKS(i,fraglist[i].idx,workdir,"","","Gaussian",1))
+                gausstask(tasklist[i],fraglist[i],atomlist[istart:ifinish],"COPY")
+                println(" ... done ")
+            end
+        end 
     end
  
     # println(tasklist)
@@ -395,6 +498,13 @@ function distributingtask(NSLURM)
 
 end
 
+@everywhere function GaussianRUN_SPAWNAT(tvec,tlist,id,snodes)
+
+    println("taskvec  : ",tvec)
+    println("tasklist : ",tlist)
+
+
+end
 
 @everywhere function NWChemRUN_SPAWNAT(tvec,tlist,id,snodes)
  
@@ -511,6 +621,179 @@ end
     flush(stdout)
 end
 
+@everywhere function GaussianRUN_SPAWN(tvec,tlist,id,snodes,iffifo)
+
+    #println("taskvec  : ",tvec)
+    #println("tasklist : ",tlist)
+
+    tbreak=id
+    while tbreak > 1
+       tbreak = tbreak/10
+    end
+    sleep(tbreak)
+
+    println(" iffifo : ", iffifo, " id : ", id)
+    flush(stdout)
+    #exit(0)
+
+    for itask in tvec
+        if itask != 0
+            hname = gethostname()
+            print("id ",id," ",gethostname()," itask ",itask," ",(tlist[itask].infile)," ",(tlist[itask].outfile))
+
+            hostlock0=tlist[itask].folder
+            hostlock = string(hostlock0,"/","hostlock")
+            #tlist[itask].folder=string(tlist[itask].folder,"/",gethostname())
+            folder = string(tlist[itask].folder,"/",gethostname())
+            println(" ",folder)
+            if !isdir(folder)
+                mkpath(folder)
+            end
+
+            if isfile(hostlock)
+                ilock = -1
+                while ilock != 1
+                    #lockcheck=open(hostlock,"r")
+
+                    global istamp = -1
+                    while istamp != 1
+                        try
+                            global lineslock=readlines(hostlock)
+                            istamp = 1
+                        catch err
+                            sleep(0.1)
+                            println("==> Re-try the hostlock read")
+                        end
+                    end
+
+                    #lines=readlines(hostlock)
+                    nlines=length(lineslock)
+
+                    if length(lineslock) > 0
+                        EXnodes = Array{String}(undef, nlines)
+                        i=0
+                        for line in lineslock
+                            i=i+1
+                            EXnodes[i] = line
+                        end
+                        ipos=findfirst(==(hname),EXnodes)
+                        if sizeof(ipos)>0
+                            sleep(5)
+                            println(" .. waiting for the jobs in this host (",hname,") ")
+                        #elseif length(snodes)-length(lineslock) < tlist[itask].nnodes
+                        #    sleep(5)
+                        #    println(" .. waiting for the jobs out of host (",hname,") ")
+                        else
+                            ilock = 1
+                        end
+
+                    else
+                        ilock = 1
+                        println(" .. no host is locked, goon running ")
+                    end
+                    #close(lockcheck)
+                end
+            else
+                println(" .. no hostlock, goon running ")
+            end
+
+            nmpi=24*tlist[itask].nnodes
+
+            global lockvec  = []
+            if isfile(hostlock)
+                iolock=open(hostlock,"a+",lock = true)
+                println("iolock was opened with a+")
+            else
+                iolock=open(hostlock,"w",lock = true)
+                println("iolock was opened with w")
+            end
+            flush(stdout)
+
+            hostflag = " "
+            hostfile = " "
+            println(iolock, hname)
+            push!(lockvec,hname)
+            try
+                close(iolock)
+                println("iolock was closed in single node case")
+            catch err
+                println("iolock was closed in single node (previously by break?)")
+            end
+            sleep(0.1)
+            flush(stdout)
+
+            #supplement = filter!(ss->occursin(r"\.nw", ss),readdir(hostlock0))
+            #println("000 hostlock0 : ", hostlock0, " 000 supplement : ",supplement)
+
+            println("hostflag : ", hostflag, " hostfile : ", hostfile)
+            flush(stdout)
+
+            try
+                run(`mv $(hostlock0)"/"$(tlist[itask].infile)  $(folder)`)
+                global IFDONE = false
+                global infile = tlist[itask].infile
+                global outfile = tlist[itask].outfile
+            catch err
+                global IFDONE = true
+                global infile = tlist[itask].infile
+                global outfile = tlist[itask].outfile
+                if iffifo
+                   #println("when the fifo is activated, Gaussian (.gjf) for testing ")
+                   supplement = filter!(ss->occursin(r"\.gjf", ss),readdir(hostlock0))
+                   println("hostlock0 : ", hostlock0, "  supplement : ",supplement)
+                   if length(supplement) > 0
+                      try
+                         run(`mv $(hostlock0)"/"$(supplement[1])  $(folder)`)
+                         global IFDONE = false
+                         global infile  = supplement[1]
+                         global outfile = string(splitext(infile)[1],".out")
+                         println("In FIFO, infile : ", infile, " outfile : ", outfile)
+                      catch err
+                         println("Conflicted by other worker")
+                      end
+                   end
+                end
+            end
+          
+            RUNXX=`time ../../G09RUN $infile $outfile `
+            println("RUNXX : ", RUNXX)
+
+            if IFDONE
+                println("JOB $(infile) already done in another Worker")
+            else
+                run(Cmd(RUNXX,dir=folder,detach=true,ignorestatus=true))
+            end
+            flush(stdout)
+            flush(stderr)
+
+            #ccheck=string(folder,"/",tlist[itask].outfile)
+            ccheck=string(folder,"/",outfile)
+            rdlast=@spawnat id check_last_G09(ccheck,IOrecord,IFDONE)
+            fetch(rdlast)
+
+            for i in 1:length(lockvec)
+                println("lockvec[",i,"] : ", lockvec[i])
+                global ised = -1
+                while ised != 1
+                    try
+                        run(`sed -i "/$(lockvec[i])/d" $(hostlock)`)
+                        println("==> Shell's sed done")
+                        ised = 1
+                    catch err
+                        sleep(0.1)
+                        println("==> Re-try the shell's sed operations")
+                    end
+                end
+            end
+
+        end
+    end
+    println("Done in GaussianRUN_SPAWN with inode-",id)
+    flush(stdout)
+
+
+end
+
 @everywhere function NWChemRUN_SPAWN(tvec,tlist,id,snodes,iffifo)
  
     #println("taskvec  : ",tvec) 
@@ -588,7 +871,11 @@ end
                 println(" .. no hostlock, goon running ")
             end 
 
-            nmpi=5*tlist[itask].nnodes
+#            if IFLSF            
+#                nmpi=24*tlist[itask].nnodes
+#            else
+                nmpi=5*tlist[itask].nnodes
+#            end  
 
             if isfile(hostlock)
                 iolock=open(hostlock,"a+",lock = true)
@@ -749,7 +1036,8 @@ end
                 end  
             end
 
-            RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $infile $outfile `
+            # RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $infile $outfile `
+            RUNXX=`time ../../G09RUN $infile $outfile `
 
             if IFDONE
                 println("JOB $(infile) already done in another Worker")                
@@ -866,9 +1154,19 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
         end
 
         if ISPAWN == 1 
-            push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist,inode,SNODES,iffifo))
+            if runtype == "GAU"
+                println("Gaussian 1")
+                push!(run,@spawn GaussianRUN_SPAWN(LBtmp,tasklist,inode,SNODES,iffifo))
+            else
+                push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist,inode,SNODES,iffifo))
+            end 
         elseif ISPAWN == 2
-            push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBtmp,tasklist,inode,SNODES))
+            if runtype == "GAU"
+                println("Gaussian 2")                 
+                push!(run,@spawnat inode GaussianRUN_SPAWNAT(LBtmp,tasklist,inode,SNODES))
+            else
+                push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBtmp,tasklist,inode,SNODES))
+            end  
         end
  
     end 
