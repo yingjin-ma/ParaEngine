@@ -14,9 +14,9 @@ end
 
 target=ARGS[1]
 
-data=["ACE2_Ab-Wild-type", "ACE2_Ab-Omicron_Q493K", "ACE2_Ab-Omicron_Q493R"]
+data=["ACE2_Ab-Wild-type", "ACE2_Ab-Omicron_Q493R"]
 nresi = 15
-threshold = 0.1
+threshold = 0.2
 
 if !isdir(target)
     println("The target suit $(target) is not exist")
@@ -98,13 +98,13 @@ for i in 1:length(data)
 end 
 
 for i in 1:length(data)
-    # println(" length(data[i]  ",length(data[i]))
+    #println(" length(data[i]) : ",length(data[i]))
     for j in 1:15
         vvv = sort(VVres[i][j])  
         lenvvv = length(vvv) 
         lenmid1 = round(Int,lenvvv/2)  
         lenmid2 = round(Int,lenvvv/2) + 1
-        #println(lenmid1,"  ",lenmid2) 
+        #println("lenmid1 : ", lenmid1," lenmid2 : ",lenmid2) 
         if lenvvv%2 == 0
             dvmid2 = (vvv[lenmid1]+vvv[lenmid2])/2
             vvv1 = vvv[1:lenmid1]
@@ -135,7 +135,10 @@ for i in 1:length(data)
         if i == 1
             println(j-0.15,"  ", vvv[1], " ", dvmid1, " ",dvmid2 ," ", dvmid3," ", vvv[lenvvv]," ",Vres[i][j]*627.5094)         
         end 
-        if i == 3
+#        if i == 2 
+#            println(j+0.00,"  ", vvv[1], " ", dvmid1, " ",dvmid2 ," ", dvmid3," ", vvv[lenvvv]," ",Vres[i][j]*627.5094)         
+#        end 
+        if i == 2
             println(j+0.15,"  ", vvv[1], " ", dvmid1, " ",dvmid2 ," ", dvmid3," ", vvv[lenvvv]," ",Vres[i][j]*627.5094)         
         end 
     end

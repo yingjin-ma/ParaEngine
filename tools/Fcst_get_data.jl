@@ -19,7 +19,7 @@ println("")
 
 global fraglist=[]
 #icount = 0
-open("fcst_raw_Q493R_0-0.dat","w") do record1
+open("fcst_raw_wild00.dat","w") do record1
 for ifile in filelist
     print("ifile : ",ifile)
     # print(record1,ifile)
@@ -48,7 +48,7 @@ for ifile in filelist
                 timeS2 = ""
                 timeCPU = 0.0
                 timeELP = 0.0
-                 nbasis = 0 
+                 nbasis = 0
                   basis = ""
                  energy = 0.0
                  errgau = -1
@@ -80,20 +80,20 @@ for ifile in filelist
                             if occursin("Delta-E=",line)
                                 dv1 = parse(Float64,sline[4])
                                 push!(Eiters,dv1)
-                            end 
+                            end
                             if occursin("basis functions,",line)
                                 nbasis = parse(Int32,sline[1])
-                            end 
+                            end
                             if occursin("Standard basis:",line)
                                 basis = sline[3]
-                            end 
+                            end
                             if occursin("SCF Done:",line)
                                 energy = parse(Float64,sline[5])
-			    end                            
+                            end
                             if occursin("Error termination",line)
                                 errgau = 1
-			    end                            
-                        end                   
+                            end
+                        end
                     end
                 end
 
@@ -123,11 +123,11 @@ for ifile in filelist
                     end
 
                     niter = length(Eiters) + 1
-  
+
                     # println("timeCPU  ", timeCPU, "  ||  timeELP  ", timeELP)
                     println(record1, nbasis, " 0 ", timeCPU, " ", timeELP, " ", split(id,".")[1], " ", niter, " ", timeCPU/niter, " 999999999 ", basis)
-                end 
- 
+                end
+
             end
         end
     end
