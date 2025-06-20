@@ -1,0 +1,11 @@
+#!/bin/bash
+
+for ix in 7 8 9 
+do 
+for iy in 0 1 2 3 4 5 6 7 8 9
+do 
+    echo $ix $iy
+    echo julia Energy_analysis_Gaussian.jl ../Spike-hACE2_MFCC/ACE2_Ab-Omicron_Q493R_${ix}_${iy}-8.0A-MFCC.info ../Workdir-631gs-ACE2_Ab-Omicron_Q493R_${ix}_${iy}
+    julia Energy_analysis_Gaussian.jl ../Spike-hACE2_MFCC/ACE2_Ab-Omicron_Q493R_${ix}_${iy}-8.0A-MFCC.info ../Workdir-631gs-ACE2_Ab-Omicron_Q493R_${ix}_${iy}
+done
+done
