@@ -3,11 +3,12 @@ runtype2 = ""
 qcdriver = ""
 pdbfile  = ""
 LBfile   = ""
-LBcube   = []
+global LBcube   = []
 MNcube   = []
 QCpara   = []
 closedshell = false
 
+@everywhere pepath   = "./"
 @everywhere workdir  = "./workdir"
 @everywhere IOrecord = ""
 @everywhere IFDONE   = false
@@ -43,4 +44,14 @@ end
    qcsoft::String
    nnodes::Int
 end
+
+CDcube = []
+CDtask = []
+mutable struct CODED
+    inode::Int
+     ipos::Int
+    itask::Int
+    icopy::Int
+end 
+
 

@@ -4,7 +4,7 @@ using Dates
 function slurminfo()
     println(" ")
     println("-----------------------------------------------------------")
-    println("-- Slurm info : -------------------------------------------")
+    println("-- LSF/Slurm info : ---------------------------------------")
     println("-----------------------------------------------------------")
     println("Number of processes : ", nprocs())
     println("Number of workers   : ", nworkers())

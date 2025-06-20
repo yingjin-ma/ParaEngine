@@ -1,0 +1,8 @@
+#!/bin/bash
+
+module use /home/scykd/mayj/Soft_modulefiles
+module load apps/julia/1.7.2
+
+g09 $1 > $2
+
+

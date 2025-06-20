@@ -1,8 +1,9 @@
 #!/bin/bash
-module  use /public/home/mayj/Quantum_modulefiles
-module load IntelMKL/2021.1.1
-module load NWChem/7.0.2
 
-mpirun -np $1 $2 $3 /public/home/mayj/Quantum_Soft/nwchem-2022Apr/bin/LINUX64/nwchem_numa $4 > $5
+module use /home/scykd/mayj/Soft_modulefiles
+module load apps/julia/1.7.2
+module load NWChem/7.0.0-GNU9-openmpi4.0.0
+
+mpirun --mca btl vader,self -np $1 $2 $3 nwchem $4 > $5
 
 

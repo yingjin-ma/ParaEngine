@@ -1,0 +1,35 @@
+
+!================= ParaEngine input ===================
+  task             GAUSSIAN           XYZ
+  engine           g09                CLOSEDSHELL
+  workdir          /work1/scquant/ParaEngine-git-CASinfo_YJMA/LBtest/workdir_standard_nocd
+  !suit            ./data-CASinfo/
+  coord            /work1/scquant/ParaEngine-git-CASinfo_YJMA/LBtest/LBtest29-6-80A-standard-00000001.pdb
+  !inputdir        ./test10
+  !overload        0.0    2   fifo
+  !LOADBALANCE      LB-LSTM_P38_15
+!======================================================
+!> VASP
+!> VASP
+
+!> Gaussian
+#p m062x/6-31G TD(singlets) iop(3/33=4) nosym pop=full
+!> Gaussian
+
+
+!> NWChem 
+
+ basis
+   * library 6-31g
+ end
+
+ set grid:eaf_size_in_dbl 50000000
+
+ task tddft energy
+
+!> NWChem
+
+
+!> GAMESS
+
+!> GAMESS

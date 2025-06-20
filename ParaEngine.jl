@@ -11,15 +11,20 @@
 # 2022.7.14  Both Slurm (DongSheng-No.1) and LSF (ERA) HPC clusters are supported
 # 2022.7.19  Start to support Gaussian and LSF
 # 2022.8.10  More for Gaussian 
+# 2023.9.11  adapt for CASinfo
+# 2023.11.19 adapt for GFPA
 
 using Distributed
 using BenchmarkTools
 
-include("PrintParaEngine.jl")
 include("GlobalParameters.jl")
+include("SearchPath.jl")
+include("PrintParaEngine.jl")
 include("ReadInputs.jl")
 include("QCTasks.jl")
 include("Monitor.jl")
+
+global pepath = locateParaEngine()
 
 # launch worker processes
 addprocs(0)
@@ -76,16 +81,16 @@ police = @spawnat 2 nodes_monitor(workdir,"hostlock")
 @async fetch(police)
 
 if IFSLURM
-    runtask(NN,IFSLURM,ISPAWN)
+    runtask(NN,IFSLURM,ISPAWN,pepath)
 end 
 if IFLSF
     LSB_JOBID=ENV["LSB_JOBID"]    
     cp(string("hosts.",LSB_JOBID),"nodelist",force=true)
-    runtask(NN,IFLSF,ISPAWN)
+    runtask(NN,IFLSF,ISPAWN,pepath)
 end 
-
 
 println("After nodes_monitor")
 
 finishinfo()
+
 

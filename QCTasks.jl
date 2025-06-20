@@ -148,6 +148,39 @@ end
     flush(stdout)
 end
 
+function gaussbabel(task,frag,atoms,par)
+
+     fragidx=lpad(frag.idx,8,"0")
+        name=frag.name
+     infile=string(workdir,"/$(name).gjf")
+
+     if par == "KEEP"
+         println(" function gaussbabel()") 
+     else
+         println(" function gaussbabel : EXIT()")
+         exit()
+     end  
+
+     println("QCpara : ", QCpara)
+
+# Way-1
+#     run(`sed -i "s/#/$(QCpara[1])/g" $infile`)     
+
+     txt = read(infile,String)
+     txt = replace(txt,"#p" => "#" ,"#P" => "#")
+     txt = replace(txt,"#" => lstrip(QCpara[1]))
+
+     open(infile,"w") do gauinp
+         print(gauinp,txt)
+     end 
+
+     task.infile  = "$(name).gjf"
+     task.outfile = "$(name).log" 
+
+     flush(stdout)
+
+end
+
 function gausstask(task,frag,atoms,par)
 
     fragidx=lpad(frag.idx,8,"0")
@@ -240,6 +273,7 @@ function nwchemtask(task,frag,atoms,par)
 
 end 
 
+
 function gentask()
 
     @everywhere global tasklist=[]
@@ -273,7 +307,7 @@ function gentask()
     elseif qcdriver == "GAUSSIAN"
         println("Generating the Gaussian tasks ... ")
         println("")       
-        if runtype2 == "XYZGAU"   # XYZ ==> GJF
+        if runtype2 == "XYZGAU"    # XYZ ==> GJF
             for i in 1:total_frags
                  istart = fraglist[i].iatom
                 ifinish = fraglist[i].iatom+fraglist[i].natoms-1
@@ -282,7 +316,17 @@ function gentask()
                 gausstask(tasklist[i],fraglist[i],atomlist[istart:ifinish],"XYZ")
                 println(" ... done ")
             end
-        else                      # GJF ==> GJF
+        elseif runtype2 == "BABEL" # GJF(BABEL) ==> GJF
+            run(`/bin/bash -c "cp -r $(targetsuit)/*.gjf $(workdir)"`)     
+            for i in 1:total_frags
+                 istart = fraglist[i].iatom
+                ifinish = fraglist[i].iatom+fraglist[i].natoms-1
+                print(" frags-",i," : atomlist ",istart,"-",ifinish)
+                push!(tasklist,TASKS(i,fraglist[i].idx,workdir,"","","Gaussian",1))
+                gaussbabel(tasklist[i],fraglist[i],atomlist[istart:ifinish],"KEEP")
+                println(" ... done ")
+            end
+        else                       # GJF ==> GJF
             run(`/bin/bash -c "cp -r $(targetsuit)/*.gjf $(workdir)"`)     
             for i in 1:total_frags
                  istart = fraglist[i].iatom
@@ -325,13 +369,22 @@ function distributingtask(NSLURM)
                         nnodes = parse(Int32,sline[2])                        
                         push!(pos_node,nnodes)
                         LBmat=[] 
-                        for i in 1:nnodes
+                        CDmat=[] 
+                        for i0 in 1:nnodes
                             line=readline(LBread)
                             sline=split(line)
                             ntmp=length(sline)
                             LBvec=[]
-                            for i in 1:ntmp
-                                push!(LBvec,parse(Int32,sline[i]))
+                            CDvec=[]
+                            for i in 1:ntmp 
+                                # =====  IF coded computing  =====
+                                if occursin(".",sline[i]) 
+                                    sline0 = split(sline[i],".")
+                                    push!(LBvec,parse(Int32,sline0[1]))
+                                    push!(CDvec,CODED(i0,i,parse(Int32,sline0[1]),parse(Int32,sline0[2]))) 
+                                else
+                                    push!(LBvec,parse(Int32,sline[i]))
+                                end 
                                 # If overload
                                 if i>(1.0-overload)*ntmp && nnodes==NSLURM
                                     #println(" i , ntmp", i, ntmp)
@@ -339,9 +392,13 @@ function distributingtask(NSLURM)
                                 end   
                             end 
                             push!(LBmat,LBvec)
+                            push!(CDmat,CDvec)
                         end  
                         push!(LBcube,LBmat)
-                    end 
+                        push!(CDcube,CDmat)
+                    end
+                    println("LBcube (Load-Balance (initial)) : ", LBcube)
+                    println("CDcube (Load-Balance (initial)) : ", CDcube)
                     if uppercase(sline[1]) == "MULTINODES"
                         mnodes = parse(Int32,sline[2])
                         line=readline(LBread)
@@ -403,7 +460,6 @@ function distributingtask(NSLURM)
                     iitv = iitv + neffe 
                     println("LBcube[",ipos,"][",i,"] : ",LBcube[ipos][i])
                 end 
-
             end
             #exit()
         end
@@ -493,7 +549,8 @@ function distributingtask(NSLURM)
         end
     end 
 
-    println(LBcube)
+    println("LBcube in distributingtask : ", LBcube)
+    println("CDcube in distributingtask : ", CDcube)
     #exit()
 
 end
@@ -621,7 +678,7 @@ end
     flush(stdout)
 end
 
-@everywhere function GaussianRUN_SPAWN(tvec,tlist,id,snodes,iffifo)
+@everywhere function GaussianRUN_SPAWN(tvec,tlist,id,snodes,iffifo,pepath)
 
     #println("taskvec  : ",tvec)
     #println("tasklist : ",tlist)
@@ -686,7 +743,6 @@ end
                         else
                             ilock = 1
                         end
-
                     else
                         ilock = 1
                         println(" .. no host is locked, goon running ")
@@ -755,7 +811,8 @@ end
                 end
             end
           
-            RUNXX=`time ../../G09RUN $infile $outfile `
+            # RUNXX=`time ../../G09RUN $infile $outfile ` 
+            RUNXX=`time $(pepath)/G09RUN $infile $outfile `
             println("RUNXX : ", RUNXX)
 
             if IFDONE
@@ -794,7 +851,7 @@ end
 
 end
 
-@everywhere function NWChemRUN_SPAWN(tvec,tlist,id,snodes,iffifo)
+@everywhere function NWChemRUN_SPAWN(tvec,tlist,id,snodes,iffifo,pepath)
  
     #println("taskvec  : ",tvec) 
     #println("tasklist : ",tlist) 
@@ -1037,7 +1094,8 @@ end
             end
 
             # RUNXX=`time ../../NWChemRUN $(nmpi) $hostflag $hostfile  $infile $outfile `
-            RUNXX=`time ../../G09RUN $infile $outfile `
+            # RUNXX=`time ../../G09RUN $infile $outfile `
+            RUNXX=`time $(pepath)/G09RUN $infile $outfile `
 
             if IFDONE
                 println("JOB $(infile) already done in another Worker")                
@@ -1074,10 +1132,62 @@ end
 
 end
 
+function coded_update(LB,CD,taskl)
 
-function runtask(NNSLURM, IFSLURM, ISPAWN)
+    ndim0 = length(taskl)
+ 
+    LBupd = LB
+    tasklupd = taskl
 
-    println("")
+#    println("tasklupd : ", tasklupd)
+    println("CD : ", CD)
+    println("  ")
+
+    iplus = 0 
+    for i in 1:length(CD[1])
+        for j in 1:length(CD[1][i])
+          if CD[1][i][j].icopy > 1 
+            println("ndimLB : ", ndim0 )
+            println(" CD[1][i][1] : ",CD[1][i][1])
+
+            iplus = iplus + 1
+            idx0 = ndim0 + iplus
+            idx1 = CD[1][i][1].inode
+            idx2 = CD[1][i][1].ipos
+            idx3 = CD[1][i][1].itask
+            idx4 = CD[1][i][1].icopy * 10000000 + idx3
+
+            LBupd[1][i][idx2] = idx0
+
+            spathtmp = tasklupd[1].folder
+            sqcsoft  = tasklupd[1].qcsoft
+
+            sidx3    = lpad(idx3,8,"0")
+            sidx3in  = string("Frag-",sidx3,".gjf")
+            sidx4    = lpad(idx4,8,"0")
+            sidx4in  = string("Frag-",sidx4,".gjf")
+            sidx4out = string("Frag-",sidx4,".log")
+
+            scpin3   = string(spathtmp,"/",sidx3in)
+            scpin4   = string(spathtmp,"/",sidx4in)
+            println(" scpin3  : ", scpin3)
+            println(" scpin4  : ", scpin4)
+            cp(scpin3,scpin4,force=true)
+
+            push!(tasklupd,TASKS(idx0,idx4,spathtmp,sidx4in,sidx4out,sqcsoft,1))
+
+            println("idx1, idx2, idx3, idx4 : ", idx1, " ",idx2," ", idx3," ", idx4)
+        end
+      end 
+    end 
+ 
+    return LBupd,tasklupd
+
+end  
+
+function runtask(NNSLURM, IFSLURM, ISPAWN, PEPATH)
+
+    println("length(LBcube) : ",length(LBcube), " PEPATH : ", PEPATH)
     for i in 1:length(LBcube) 
         if i == NNSLURM || LBfile == ""
             println("Matched the number of NODES between SLURM and Task-Pre-Assignment ") 
@@ -1124,11 +1234,21 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
     println("")
     flush(stdout)
 
-    #println("LBcube : ",LBcube)
-    #println("  ")
+    # If Coded Computing
+    #if    
+    #    LBcube1,tasklist1 = coded_update(LBcube,CDcube,tasklist)
+    #else
+    LBcube1 = LBcube
+    tasklist1 = tasklist
+
+ 
+    println("LBcube : ", LBcube1)
+    println("  ")
+    println("tasklist : ", tasklist1)
+    println("  ")
     println("pos_node : ", pos_node)
     println("  ")
-
+  
     for i in 1:length(pos_node)
         if pos_node[i] == NNSLURM
             global ipos = i
@@ -1147,25 +1267,25 @@ function runtask(NNSLURM, IFSLURM, ISPAWN)
         LBtmp = [] 
 
         if LBfile != ""
-            println(" LBcube[",ipos,"][",i,"] : ",LBcube[ipos][i])
-            LBtmp=LBcube[ipos][i]
+            println(" LBcube1[",ipos,"][",i,"] : ",LBcube1[ipos][i])
+            LBtmp=LBcube1[ipos][i]
         else
-            LBtmp=LBcube[1][i]
+            LBtmp=LBcube1[1][i]
         end
 
         if ISPAWN == 1 
             if runtype == "GAU"
-                println("Gaussian 1")
-                push!(run,@spawn GaussianRUN_SPAWN(LBtmp,tasklist,inode,SNODES,iffifo))
+                println("Gaussian 1 RUN_SPAWN ")
+                push!(run,@spawn GaussianRUN_SPAWN(LBtmp,tasklist1,inode,SNODES,iffifo,PEPATH))
             else
-                push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist,inode,SNODES,iffifo))
+                push!(run,@spawn NWChemRUN_SPAWN(LBtmp,tasklist1,inode,SNODES,iffifo,PEPATH))
             end 
         elseif ISPAWN == 2
             if runtype == "GAU"
-                println("Gaussian 2")                 
-                push!(run,@spawnat inode GaussianRUN_SPAWNAT(LBtmp,tasklist,inode,SNODES))
+                println("Gaussian 2 RUN_SPAWNAT ")                 
+                push!(run,@spawnat inode GaussianRUN_SPAWNAT(LBtmp,tasklist1,inode,SNODES))
             else
-                push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBtmp,tasklist,inode,SNODES))
+                push!(run,@spawnat inode NWChemRUN_SPAWNAT(LBtmp,tasklist1,inode,SNODES))
             end  
         end
  
